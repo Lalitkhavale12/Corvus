@@ -8,7 +8,7 @@
 
 | Phase | Name | Status | Requirements | Dependencies |
 |---|---|---|---|---|
-| **1** | Data Pipeline | 🔄 In Progress | FR-1.1 → FR-1.7 | None |
+| **1** | Data Pipeline | ✅ Complete | FR-1.1 → FR-1.7 | None |
 | **2** | Model Training + Experiment Tracking | ⬜ Not Started | FR-2.1 → FR-2.5, FR-3.1 → FR-3.3 | Phase 1 |
 | **3** | Prediction API + Containerization | ⬜ Not Started | FR-4.1 → FR-4.4, FR-5.1 → FR-5.2 | Phase 2 |
 | **4** | CI/CD + Monitoring | ⬜ Not Started | FR-6.1, FR-7.1 → FR-7.2 | Phase 3 |
@@ -19,7 +19,7 @@
 
 ## Phase 1: Data Pipeline
 
-**Status**: 🔄 In Progress (core built, EDA + Great Expectations remaining)
+**Status**: ✅ Complete (verified 2026-09-19, 13/13 tests green, 14/14 must-haves)
 **Delivers**: `data/processed/{train,val,test}.csv` + `preprocessing_pipeline.joblib`
 **Patent impact**: Claim 2 (pipeline artifact exists)
 
@@ -33,9 +33,9 @@
 - [x] 4 pytest tests passing (clean, split disjointness, Pipeline type, no NaN)
 
 ### Remaining
-- [ ] EDA notebook (`notebooks/`) — distributions, correlations, missing-value heatmap
-- [ ] Great Expectations data validation schema (`data/validation/`)
-- [ ] Additional test coverage (ingestion tests, `save_outputs()` integration test)
+- [x] EDA notebook (`notebooks/01_eda_ckd.ipynb`) — distributions, correlations, missing-value heatmap
+- [x] Great Expectations data validation schema (`data/validation/ckd_suite.json` + `validate.py`, GX 1.x)
+- [x] Additional test coverage (ingestion tests, `save_outputs()` integration test — 13/13 green)
 
 ---
 
