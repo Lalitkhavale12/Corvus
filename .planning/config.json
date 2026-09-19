@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "project_name": "Corvus",
+  "created": "2026-09-19",
+  "workflow": {
+    "auto_commit": true,
+    "require_tests": true,
+    "require_review": false,
+    "parallel_agents": true
+  },
+  "preferences": {
+    "language": "python",
+    "test_framework": "pytest",
+    "config_format": "yaml",
+    "logging": "loguru"
+  },
+  "patent_tracking": true,
+  "milestone": "M1",
+  "current_phase": 0
+}
