@@ -10,7 +10,7 @@ row counts, and no fitting of any kind (this module must stay leak-safe).
 GX 1.x flow: ephemeral context -> pandas data source -> dataframe asset ->
 whole-dataframe batch definition -> ``batch.validate(suite)``.
 
-Exit contract: ``python data/validation/validate.py`` exits 0 when the
+Exit contract: invoking this runner as a script exits 0 when the
 configured raw CSV satisfies the suite, non-zero otherwise — and never with
 an unhandled traceback for data failures (the gate fails closed).
 """
