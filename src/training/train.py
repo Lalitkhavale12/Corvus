@@ -15,6 +15,10 @@ import mlflow.sklearn
 import os
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -41,10 +45,20 @@ os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
 REGISTERED_MODEL_NAME = "corvus-ckd"
 
 # D-02: library defaults with fixed seeds + one rationale each. No grid
-# search — at n=279 train rows, grids mostly fit noise. LR uses the
-# liblinear-friendly default solver; random_state keeps runs reproducible.
+# search — at n=279 train rows, grids mostly fit noise.
 ESTIMATORS = {
+    # Baseline linear model; random_state keeps the lbfgs shuffling reproducible.
     "logistic-regression": LogisticRegression(random_state=42),
+    # Single-tree baseline isolating split quality from ensembling gains.
+    "decision-tree": DecisionTreeClassifier(random_state=42),
+    # Bagged trees tame single-tree variance on 279 noisy clinical rows.
+    "random-forest": RandomForestClassifier(random_state=42),
+    # Sequential-error correction as the boosting foil to bagging.
+    "gradient-boosting": GradientBoostingClassifier(random_state=42),
+    # Gradient boosting with sparsity-aware splits for the heavy-missingness CKD columns.
+    "xgboost": XGBClassifier(random_state=42),
+    # Leaf-wise booster for a second gradient-boosting family; verbosity silenced for n=279 log spam.
+    "lightgbm": LGBMClassifier(random_state=42, verbosity=-1),
 }
 
 
@@ -140,8 +154,9 @@ def run_experiment(name: str = "logistic-regression") -> dict:
 
 
 def main():
-    result = run_experiment("logistic-regression")
-    print(f"TRAINED logistic-regression roc_auc={result['metrics']['roc_auc']:.4f}")
+    for name in ESTIMATORS:
+        result = run_experiment(name)
+        print(f"TRAINED {name} roc_auc={result['metrics']['roc_auc']:.4f}")
 
 
 if __name__ == "__main__":

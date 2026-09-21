@@ -11,10 +11,21 @@ from src.training import train as train_mod
 
 
 def test_all_nine_configs_construct():
-    # Tracer slice: LR entry exists with seeded defaults (D-02).
-    est = train_mod.build_estimator("logistic-regression")
-    assert type(est).__name__ == "LogisticRegression"
-    assert est.get_params()["random_state"] == 42
+    # Classical slate: 6 entries with seeded defaults (D-01/D-02).
+    # MLP activations asserted separately once train_mlp.py lands (Task 2).
+    expected = {
+        "logistic-regression": "LogisticRegression",
+        "decision-tree": "DecisionTreeClassifier",
+        "random-forest": "RandomForestClassifier",
+        "gradient-boosting": "GradientBoostingClassifier",
+        "xgboost": "XGBClassifier",
+        "lightgbm": "LGBMClassifier",
+    }
+    assert set(train_mod.ESTIMATORS) == set(expected)
+    for name, cls_name in expected.items():
+        est = train_mod.build_estimator(name)
+        assert type(est).__name__ == cls_name
+        assert est.get_params()["random_state"] == 42
 
 
 def test_lineage_excluded_feature_count_24():
