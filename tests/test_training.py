@@ -28,6 +28,24 @@ def test_all_nine_configs_construct():
         assert est.get_params()["random_state"] == 42
 
 
+def test_mlp_activations_valid():
+    # MLP slate: 3 runs differing only in activation (D-01/D-04/D-05).
+    from src.training import train_mlp as mlp_mod
+
+    assert mlp_mod.ACTIVATIONS == {"sigmoid": "logistic", "tanh": "tanh", "relu": "relu"}
+    for name in mlp_mod.ACTIVATIONS:
+        est = mlp_mod.build_estimator(name)
+        assert type(est).__name__ == "MLPClassifier"
+        params = est.get_params()
+        assert params["activation"] in ("logistic", "tanh", "relu")
+        assert params["activation"] != "sigmoid"  # never a valid sklearn value
+        assert params["hidden_layer_sizes"] == (50,)
+        assert params["max_iter"] == mlp_mod.MAX_ITER
+        assert params["random_state"] == 42
+    # Full slate: 6 classical + 3 MLP = 9 configs (D-01).
+    assert len(train_mod.ESTIMATORS) + len(mlp_mod.ACTIVATIONS) == 9
+
+
 def test_lineage_excluded_feature_count_24():
     (X_train, _), _, _ = train_mod.load_raw_splits()
     assert LINEAGE_ROW_COL not in X_train.columns
