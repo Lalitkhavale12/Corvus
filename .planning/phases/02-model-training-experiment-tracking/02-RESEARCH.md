@@ -343,14 +343,14 @@ for v in superseded_versions:  # everything else → Archived (D-07)
 | A4 | Default `max_iter=100` for LogisticRegression converges on scaled CKD features; raising only if ConvergenceWarning appears | Code Examples | Low — warning-driven bump is a 1-line change with a seeded rerun |
 | A5 | File-store Registry supports `transition_model_version_stage` + `models:/` URIs identically to server mode at this scale | Standard Stack | Low — file store is the documented default; Phase 3 dependency flagged if it diverges |
 
-## Open Questions
+## Open Questions (RESOLVED — adopted by 02-01/02-02 PLAN.md)
 
-1. **Registered model naming: one name per estimator family vs. one name for all?**
+1. **Registered model naming** — RESOLVED: single name `corvus-ckd` (01-T3 action).
    - What we know: D-06 requires every run to register a new version; Registry auto-increments versions per registered-model name. Either `corvus-ckd` (9 versions, winner picked by version) or `corvus-ckd-{rf,xgb,...}` (per-family versions) satisfies FR-3.2.
    - What's unclear: Which shape Phase 3 prefers for Production resolution (single name is simpler for `models:/corvus-ckd/Staging`).
    - Recommendation: Planner picks single-name `corvus-ckd` (simplest Phase 3 URI) unless a reason against emerges; record the choice in PLAN.md.
 
-2. **Does `evaluate.py` re-run inference or read logged metrics?**
+2. **Does `evaluate.py` re-run inference or read logged metrics?** — RESOLVED: read via `MlflowClient.search_runs` (01-T3/02-T3 actions).
    - What we know: CONTEXT.md permits both ("from MLflow runs or CSV predictions").
    - What's unclear: Re-running inference duplicates train.py logic; reading runs couples evaluate to tracking state.
    - Recommendation: Read logged test metrics via `MlflowClient.search_runs` (no re-fit, single source of truth), with a CSV-predictions fallback only if runs are missing.
