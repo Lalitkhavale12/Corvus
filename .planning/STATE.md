@@ -20,8 +20,8 @@ current_phase_name: Model Training + Experiment Tracking
 ## Current Position
 
 - **Milestone**: M1 (Initial Build)
-- **Active Phase**: Phase 2 — Model Training + Experiment Tracking (plan 02-01 tracer complete 2026-09-21)
-- **Next Phase**: Phase 2 plan 02-02 (9-config expansion)
+- **Active Phase**: Phase 2 — Model Training + Experiment Tracking (plans 02-01 tracer + 02-02 expansion complete 2026-09-21)
+- **Next Phase**: Phase 2 verify-work, then Phase 3 — API + Containers
 - **Blocked**: Nothing
 
 ## Phase Status
@@ -29,13 +29,22 @@ current_phase_name: Model Training + Experiment Tracking
 | Phase | Status | Last Updated |
 |---|---|---|
 | 1 — Data Pipeline | ✅ Complete | 2026-09-19 |
-| 2 — Model Training | 🔄 In Progress (02-01 tracer done) | 2026-09-21 |
+| 2 — Model Training | ✅ Implementation Complete (02-01 tracer + 02-02 expansion done) | 2026-09-21 |
 | 3 — API + Containers | ⬜ Not Started | — |
 | 4 — CI/CD + Monitoring | ⬜ Not Started | — |
 | 5 — Drift + Retraining | ⬜ Not Started | — |
 | 6 — Visualization + Polish | ⬜ Not Started | — |
 
 ## Completed Work
+
+### Phase 2 plan 02-02 (9-config expansion, complete 2026-09-21)
+
+- ✅ 6 classical configs in train.py (LR untouched, DT/RF/GB/XGB/LGBM seeded 42, LGBM verbosity=-1, one rationale each)
+- ✅ train_mlp.py: 3 activation runs reusing train.py shapes (hidden (50,), max_iter 500, seeded, no early stopping)
+- ✅ run_id-linked winner→version resolution (tracer latest-heuristic broke at 9 versions)
+- ✅ Canonical pass: 9 runs × (5 metrics + pipeline + model), corvus-ckd v1–v9, winner mlp-relu v9 Staging, 8 Archived, 0 Production
+- ✅ 26 pytest tests green; requirements FR-2.1, FR-2.5, FR-3.1, FR-3.2, FR-3.3 delivered
+- ✅ Decisions: ModelVersion.run_id linkage for winner resolution, mlp reuses train helpers, reset gitignored mlruns for canonical pass
 
 ### Phase 2 plan 02-01 (tracer slice, complete 2026-09-21)
 
@@ -80,6 +89,6 @@ Start with `/gsd-plan-phase 2` to begin model training (Phase 1 is complete and 
 
 ## Session
 
-**Last session:** 2026-09-21T21:00:00.000Z
-**Stopped at:** Phase 2 plan 02-01 complete (tracer slice)
-**Resume file:** .planning/phases/02-model-training-experiment-tracking/02-01-SUMMARY.md
+**Last session:** 2026-09-21T15:55:00.000Z
+**Stopped at:** Phase 2 plans 02-01 + 02-02 complete (9-config expansion)
+**Resume file:** .planning/phases/02-model-training-experiment-tracking/02-02-SUMMARY.md

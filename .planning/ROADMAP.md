@@ -41,22 +41,22 @@
 
 ## Phase 2: Model Training + Experiment Tracking
 
-**Status**: 🔄 In Progress (plan 02-01 tracer complete 2026-09-21)
+**Status**: ✅ Implementation Complete (plans 02-01 tracer + 02-02 expansion done 2026-09-21; 9 runs, winner mlp-relu v9 Staging)
 **Delivers**: Trained models logged to MLflow, best model registered
 **Patent impact**: Claim 2 completion (pipeline + model in same MLflow run)
 **Depends on**: Phase 1 outputs (`data/processed/`, `preprocessing_pipeline.joblib`)
 
 ### Tasks
 - [x] Plan 02-01 tracer: LR end-to-end (`src/training/train.py`), strict ROC-AUC ranking + Staging (`src/evaluation/evaluate.py`), Wave 0 fixtures
-- [ ] Create `src/training/train.py` — train LR, Decision Tree, Random Forest, Gradient Boosting, XGBoost, LightGBM
-- [ ] Create `src/training/train_mlp.py` — MLP with Sigmoid, Tanh, ReLU as separate runs
-- [ ] Create `src/evaluation/evaluate.py` — accuracy, precision, recall, F1, ROC-AUC per model
-- [ ] Configure MLflow tracking (`mlflow.tracking_uri` from config)
-- [ ] Log `preprocessing_pipeline.joblib` + model as artifacts in same MLflow run (**Claim 2**)
-- [ ] Compare all models, select best by ROC-AUC
-- [ ] Register best model to MLflow Model Registry (Staging → Production)
+- [x] Plan 02-02 expansion: `src/training/train.py` — LR, Decision Tree, Random Forest, Gradient Boosting, XGBoost, LightGBM (seeded, one rationale each)
+- [x] Plan 02-02 expansion: `src/training/train_mlp.py` — MLP with Sigmoid, Tanh, ReLU as separate runs
+- [x] `src/evaluation/evaluate.py` — accuracy, precision, recall, F1, ROC-AUC per model; run_id-linked winner resolution
+- [x] MLflow tracking (`mlflow.tracking_uri` from config, resolved against PROJECT_ROOT)
+- [x] `preprocessing_pipeline.joblib` + model as artifacts in same MLflow run (**Claim 2**, all 9 runs)
+- [x] Compared all 9 models, best by strict-max ROC-AUC (winner: mlp-relu)
+- [x] Best model registered to MLflow Model Registry (v9 Staging, v1–v8 Archived, Production untouched)
 - [ ] Create `src/feature_engineering/features.py` if feature selection adds value
-- [ ] Write tests for training and evaluation
+- [x] Training, evaluation, and registry tests (26 green)
 
 ---
 
