@@ -31,8 +31,8 @@ def test_stage_transitions():
 
 
 def test_every_run_registers_version(tmp_path, monkeypatch):
-    # Every training run registers a new version: run_experiment twice on a
-    # tmp tracking URI and assert the registered model gains versions.
+    # Every training run registers a new version: 9 log_model calls on a
+    # tmp tracking URI and assert the registered model gains 9 versions.
     import mlflow
     from sklearn.dummy import DummyClassifier
 
@@ -40,9 +40,9 @@ def test_every_run_registers_version(tmp_path, monkeypatch):
     uri = str(tmp_path / "mlruns")
     mlflow.set_tracking_uri(uri)
     mlflow.set_experiment("corvus-ckd-version-test")
-    for i in range(2):
+    for i in range(9):
         with mlflow.start_run(run_name=f"run-{i}"):
-            mlflow.log_metric("roc_auc", 0.5 + i * 0.1)
+            mlflow.log_metric("roc_auc", 0.5 + i * 0.05)
             mlflow.sklearn.log_model(
                 DummyClassifier(strategy="prior"),
                 artifact_path="model",
@@ -51,7 +51,19 @@ def test_every_run_registers_version(tmp_path, monkeypatch):
             )
     client = mlflow.tracking.MlflowClient()
     versions = client.search_model_versions("name='corvus-ckd-tmp'")
-    assert len(versions) >= 2
+    assert len(versions) == 9  # one version per run (D-06)
+
+
+def test_winner_version_resolves_via_run_id():
+    # 9-run shape: winner run maps to its version through run_id linkage,
+    # not through the tracer's latest-version heuristic.
+    versions = [
+        SimpleNamespace(version="1", run_id="run-a"),
+        SimpleNamespace(version="2", run_id="run-b"),
+        SimpleNamespace(version="3", run_id="run-c"),
+    ]
+    assert eval_mod.resolve_winner_version(versions, "run-b") == "2"
+    assert eval_mod.resolve_winner_version(versions, "missing") == "3"
 
 
 def test_no_production_transition():

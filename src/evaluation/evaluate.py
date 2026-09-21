@@ -51,6 +51,20 @@ def select_winner(runs: list) -> dict:
     return max(runs, key=lambda r: r["metrics"]["roc_auc"])
 
 
+def resolve_winner_version(versions: list, winner_run_id: str):
+    """Map the winning run to its registered version via run_id linkage.
+
+    The tracer's latest-version heuristic breaks once 9 runs register 9
+    versions, so resolve through ``ModelVersion.run_id`` (present in
+    installed mlflow 3.16.1). Falls back to the latest version only when
+    no version links to the winner run.
+    """
+    for v in versions:
+        if v.run_id == winner_run_id:
+            return v.version
+    return max(v.version for v in versions)
+
+
 def apply_registry_stages(client: MlflowClient, model_name: str, winner_version: str,
                           superseded_versions: list) -> None:
     """Winner to Staging, superseded to Archived. Never Production (D-06)."""
@@ -96,7 +110,7 @@ def run_evaluation(model_name: str = REGISTERED_MODEL_NAME):
 
         versions = client.search_model_versions(f"name='{model_name}'")
         if versions:
-            winner_version = max(v.version for v in versions)  # tracer: latest run
+            winner_version = resolve_winner_version(versions, winner["run_id"])
             superseded = [v.version for v in versions if v.version != winner_version]
             apply_registry_stages(client, model_name, winner_version, superseded)
             stage = client.get_model_version(model_name, winner_version).current_stage
