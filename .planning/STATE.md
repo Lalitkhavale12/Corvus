@@ -8,7 +8,7 @@ progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 current_phase_name: Model Training + Experiment Tracking
 ---
@@ -20,8 +20,8 @@ current_phase_name: Model Training + Experiment Tracking
 ## Current Position
 
 - **Milestone**: M1 (Initial Build)
-- **Active Phase**: Phase 1 — Data Pipeline (complete, verified 2026-09-19)
-- **Next Phase**: Phase 2 — Model Training + Experiment Tracking
+- **Active Phase**: Phase 2 — Model Training + Experiment Tracking (plan 02-01 tracer complete 2026-09-21)
+- **Next Phase**: Phase 2 plan 02-02 (9-config expansion)
 - **Blocked**: Nothing
 
 ## Phase Status
@@ -29,13 +29,20 @@ current_phase_name: Model Training + Experiment Tracking
 | Phase | Status | Last Updated |
 |---|---|---|
 | 1 — Data Pipeline | ✅ Complete | 2026-09-19 |
-| 2 — Model Training | ⬜ Not Started | — |
+| 2 — Model Training | 🔄 In Progress (02-01 tracer done) | 2026-09-21 |
 | 3 — API + Containers | ⬜ Not Started | — |
 | 4 — CI/CD + Monitoring | ⬜ Not Started | — |
 | 5 — Drift + Retraining | ⬜ Not Started | — |
 | 6 — Visualization + Polish | ⬜ Not Started | — |
 
 ## Completed Work
+
+### Phase 2 plan 02-01 (tracer slice, complete 2026-09-21)
+
+- ✅ LR trains end-to-end from train_raw.csv into one Claim 2 MLflow run (roc_auc=1.0, 5 metrics)
+- ✅ evaluate.py strict-max ROC-AUC ranking; winner corvus-ckd v1 in Staging, no Production
+- ✅ 24 pytest tests green; Wave 0 red-to-green
+- ✅ Decisions: MLflow 3.x logged-model linkage assertions, MLFLOW_ALLOW_FILE_STORE opt-in, search_model_versions for history
 
 ### Phase 1 (complete, verified 2026-09-19)
 
@@ -73,6 +80,6 @@ Start with `/gsd-plan-phase 2` to begin model training (Phase 1 is complete and 
 
 ## Session
 
-**Last session:** 2026-09-21T14:28:45.180Z
-**Stopped at:** Phase 2 context gathered
-**Resume file:** .planning/phases/02-model-training-experiment-tracking/02-CONTEXT.md
+**Last session:** 2026-09-21T21:00:00.000Z
+**Stopped at:** Phase 2 plan 02-01 complete (tracer slice)
+**Resume file:** .planning/phases/02-model-training-experiment-tracking/02-01-SUMMARY.md

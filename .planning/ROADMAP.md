@@ -41,12 +41,13 @@
 
 ## Phase 2: Model Training + Experiment Tracking
 
-**Status**: ⬜ Not Started
+**Status**: 🔄 In Progress (plan 02-01 tracer complete 2026-09-21)
 **Delivers**: Trained models logged to MLflow, best model registered
 **Patent impact**: Claim 2 completion (pipeline + model in same MLflow run)
 **Depends on**: Phase 1 outputs (`data/processed/`, `preprocessing_pipeline.joblib`)
 
 ### Tasks
+- [x] Plan 02-01 tracer: LR end-to-end (`src/training/train.py`), strict ROC-AUC ranking + Staging (`src/evaluation/evaluate.py`), Wave 0 fixtures
 - [ ] Create `src/training/train.py` — train LR, Decision Tree, Random Forest, Gradient Boosting, XGBoost, LightGBM
 - [ ] Create `src/training/train_mlp.py` — MLP with Sigmoid, Tanh, ReLU as separate runs
 - [ ] Create `src/evaluation/evaluate.py` — accuracy, precision, recall, F1, ROC-AUC per model
