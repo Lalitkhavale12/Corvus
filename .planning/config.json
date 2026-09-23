@@ -6,7 +6,9 @@
     "auto_commit": true,
     "require_tests": true,
     "require_review": false,
-    "parallel_agents": true
+    "parallel_agents": true,
+    "_auto_chain_active": false,
+    "use_worktrees": false
   },
   "preferences": {
     "language": "python",

@@ -1,18 +1,11 @@
 """
 Validation-gate tests for Phase 1. All frames are synthetic in-memory builds
-covering the suite contract (label domain, target presence, row-count range);
-the real raw file is never touched. The runner is imported from the validation
-module via a sys.path insert because that directory is not a package.
+covering the suite contract (label domain, target presence, row-count range,
+no exact duplicates); the real raw file is never touched.
 """
-import sys
-from pathlib import Path
-
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT / "data" / "validation"))
-
-from validate import run_raw_validation  # noqa: E402
+from src.validation.validate import run_raw_validation
 
 ALL_COLUMNS = [
     "age", "al", "ane", "appet", "ba", "bgr", "bp", "bu", "cad",
@@ -56,4 +49,16 @@ def test_missing_target_column_rejected():
 
 def test_tiny_frame_rejected():
     result = run_raw_validation(_good_frame(n=2))
+    assert result.success is False
+
+
+def test_oversize_frame_rejected():
+    result = run_raw_validation(_good_frame(n=600))
+    assert result.success is False
+
+
+def test_exact_duplicate_rows_rejected():
+    df = _good_frame()
+    df = pd.concat([df, df.iloc[[0]]], ignore_index=True)
+    result = run_raw_validation(df)
     assert result.success is False

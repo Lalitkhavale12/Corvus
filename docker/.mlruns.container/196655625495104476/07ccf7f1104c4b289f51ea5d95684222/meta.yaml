@@ -1,0 +1,14 @@
+artifact_uri: /mlruns/196655625495104476/07ccf7f1104c4b289f51ea5d95684222/artifacts
+end_time: 1790005394136
+entry_point_name: ''
+experiment_id: '196655625495104476'
+lifecycle_stage: active
+run_id: 07ccf7f1104c4b289f51ea5d95684222
+run_name: lightgbm
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1790005387608
+status: 3
+tags: []
+user_id: Lalit

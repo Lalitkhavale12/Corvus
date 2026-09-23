@@ -17,10 +17,13 @@ from src.preprocessing.preprocess import (
     split_raw,
     fit_transform_split,
     save_outputs,
-    NUMERIC_COLS,
-    CATEGORICAL_COLS,
+    get_column_lists,
+    LINEAGE_ROW_COL,
+    LINEAGE_ID_COL,
 )
 from src.utils.config import load_config
+
+NUMERIC_COLS, CATEGORICAL_COLS = get_column_lists()
 
 
 def _snapshot_dir(path):
@@ -64,10 +67,13 @@ def test_save_outputs_round_trip_isolated(tmp_path, monkeypatch, synthetic_df):
     load_config.cache_clear()
     monkeypatch.setattr(preprocess_mod, "load_config", lambda *a, **k: override)
 
-    save_outputs(pipeline, splits, ys)
+    raw_splits = (X_train, X_val, X_test)
+    source_ids = [X.index.to_series() for X in raw_splits]
+    save_outputs(pipeline, splits, ys, raw_splits=raw_splits, source_ids=source_ids)
 
-    # All four artifacts exist under the isolated dir.
-    for name in ("train.csv", "val.csv", "test.csv"):
+    # All artifacts exist under the isolated dir: transformed + raw + pipeline.
+    for name in ("train.csv", "val.csv", "test.csv",
+                 "train_raw.csv", "val_raw.csv", "test_raw.csv"):
         assert (tmp_path / name).exists()
     assert (tmp_path / "preprocessing_pipeline.joblib").exists()
 
@@ -79,6 +85,15 @@ def test_save_outputs_round_trip_isolated(tmp_path, monkeypatch, synthetic_df):
     assert len(train_df) == len(splits[0])
     assert len(val_df) == len(splits[1])
     assert len(test_df) == len(splits[2])
+
+    # Lineage columns present; raw files carry untransformed feature names.
+    for frame in (train_df, val_df, test_df):
+        assert LINEAGE_ROW_COL in frame.columns
+        assert LINEAGE_ID_COL in frame.columns
+    train_raw = pd.read_csv(tmp_path / "train_raw.csv")
+    assert LINEAGE_ROW_COL in train_raw.columns
+    assert NUMERIC_COLS[0] in train_raw.columns  # raw names, not encoded
+    assert len(train_raw) == len(splits[0])
 
     # The reloaded artifact transforms held-out features without error.
     reloaded = joblib.load(tmp_path / "preprocessing_pipeline.joblib")

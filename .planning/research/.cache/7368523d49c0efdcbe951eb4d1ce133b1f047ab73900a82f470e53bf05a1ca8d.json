@@ -1,0 +1,1 @@
+{"content":"Streamlit thin client: st.form + requests.post JSON to /predict for single record; st.file_uploader plus requests.post files multipart to /batch_predict for CSV. API base URL from env with localhost default. No model logic in frontend.","source":"web","provider":"brave","confidence":"LOW","fetched_at":"2026-09-23T05:56:34.116Z","ttl":86400000,"kind":"web"}

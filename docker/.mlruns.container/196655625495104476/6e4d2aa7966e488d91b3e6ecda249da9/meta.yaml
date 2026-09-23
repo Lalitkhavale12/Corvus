@@ -1,0 +1,14 @@
+artifact_uri: /mlruns/196655625495104476/6e4d2aa7966e488d91b3e6ecda249da9/artifacts
+end_time: 1790005367927
+entry_point_name: ''
+experiment_id: '196655625495104476'
+lifecycle_stage: active
+run_id: 6e4d2aa7966e488d91b3e6ecda249da9
+run_name: decision-tree
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1790005361929
+status: 3
+tags: []
+user_id: Lalit
