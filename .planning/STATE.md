@@ -20,8 +20,8 @@ current_phase_name: Prediction API + Containerization
 ## Current Position
 
 - **Milestone**: M1 (Initial Build)
-- **Active Phase**: Phase 3 — Prediction API + Containerization (plan 03-01 complete 2026-09-23)
-- **Next Phase**: Phase 3 plan 03-02 (tracer: schemas + loader + /predict + /health + /model_info)
+- **Active Phase**: Phase 3 — Prediction API + Containerization (plans 03-01, 03-02 complete 2026-09-23)
+- **Next Phase**: Phase 3 plan 03-03 (batch logging hardening + full-record Postgres logging)
 - **Blocked**: Nothing
 
 ## Phase Status
@@ -30,12 +30,21 @@ current_phase_name: Prediction API + Containerization
 |---|---|---|
 | 1 — Data Pipeline | ✅ Complete | 2026-09-19 |
 | 2 — Model Training | ✅ Implementation Complete (02-01 tracer + 02-02 expansion done) | 2026-09-21 |
-| 3 — API + Containers | 🔄 In Progress (03-01 done 2026-09-23) | 2026-09-23 |
+| 3 — API + Containers | 🔄 In Progress (03-01, 03-02 done 2026-09-23) | 2026-09-23 |
 | 4 — CI/CD + Monitoring | ⬜ Not Started | — |
 | 5 — Drift + Retraining | ⬜ Not Started | — |
 | 6 — Visualization + Polish | ⬜ Not Started | — |
 
 ## Completed Work
+
+### Phase 3 plan 03-02 (tracer slice, complete 2026-09-23)
+
+- ✅ api package: schemas (24-field CKDRequest + versioned responses), pinned loader (models:/corvus-ckd/9 + pipeline width assert), db layer (PredictionLog + 3-attempt create_tables), FastAPI app (lifespan pin + /predict + /batch_predict + /health + /model_info)
+- ✅ Live probe: load_serving_artifacts(9) against real registry → run_id 10ac3e5e, n_features_in_=24
+- ✅ Fail-closed proven: 422 on bad input, 503 naming DATABASE_URL when unset, RuntimeError after 3 retries when unreachable
+- ✅ 12 API tests green (mocked loader/session, no real mlruns/Postgres); full suite 38 passed, 0 failed
+- ✅ Requirements FR-4.1, FR-4.2, FR-4.3, FR-4.4 delivered (FR-4.4 with recorded D-02 startup-pin deviation)
+- ✅ Decisions: fail-closed 503 over silent serving; /batch_predict pulled into 03-02 so all 8 stubs go green; model_info follows plan contract (model_name/model_version/run_id/resolution); sequential commits stay on main
 
 ### Phase 3 plan 03-01 (foundation, complete 2026-09-23)
 
@@ -98,6 +107,6 @@ Start with `/gsd-plan-phase 2` to begin model training (Phase 1 is complete and 
 
 ## Session
 
-**Last session:** 2026-09-23T06:36:38Z
-**Stopped at:** Completed 03-01-PLAN.md
+**Last session:** 2026-09-23T06:59:10Z
+**Stopped at:** Completed 03-02-PLAN.md
 **Resume file:** None
