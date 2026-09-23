@@ -62,7 +62,7 @@ services:
       - "5000:5000"
     volumes:
       - ./.mlruns.container:/mlruns
-    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri file:///mlruns --default-artifact-root file:///mlruns --allowed-hosts "mlflow:*"
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri file:///mlruns --default-artifact-root file:///mlruns --allowed-hosts "mlflow:*,localhost:*,127.0.0.1:*"
     depends_on:
       db:
         condition: service_healthy
