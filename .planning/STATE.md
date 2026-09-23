@@ -2,13 +2,13 @@
 gsd_state_version: "1.0"
 status: unknown
 stopped_at: Phase 3 context gathered
-last_updated: "2026-09-23T06:17:56.076Z"
+last_updated: "2026-09-23T06:36:38Z"
 state_head: b8b69e64e58724a1991cff368394d9f753a83363
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 9
-  completed_plans: 5
+  completed_plans: 6
   percent: 0
 current_phase_name: Prediction API + Containerization
 ---
@@ -20,8 +20,8 @@ current_phase_name: Prediction API + Containerization
 ## Current Position
 
 - **Milestone**: M1 (Initial Build)
-- **Active Phase**: Phase 2 — Model Training + Experiment Tracking (plans 02-01 tracer + 02-02 expansion complete 2026-09-21)
-- **Next Phase**: Phase 2 verify-work, then Phase 3 — API + Containers
+- **Active Phase**: Phase 3 — Prediction API + Containerization (plan 03-01 complete 2026-09-23)
+- **Next Phase**: Phase 3 plan 03-02 (tracer: schemas + loader + /predict + /health + /model_info)
 - **Blocked**: Nothing
 
 ## Phase Status
@@ -30,12 +30,21 @@ current_phase_name: Prediction API + Containerization
 |---|---|---|
 | 1 — Data Pipeline | ✅ Complete | 2026-09-19 |
 | 2 — Model Training | ✅ Implementation Complete (02-01 tracer + 02-02 expansion done) | 2026-09-21 |
-| 3 — API + Containers | ⬜ Not Started | — |
+| 3 — API + Containers | 🔄 In Progress (03-01 done 2026-09-23) | 2026-09-23 |
 | 4 — CI/CD + Monitoring | ⬜ Not Started | — |
 | 5 — Drift + Retraining | ⬜ Not Started | — |
 | 6 — Visualization + Polish | ⬜ Not Started | — |
 
 ## Completed Work
+
+### Phase 3 plan 03-01 (foundation, complete 2026-09-23)
+
+- ✅ corvus-ckd v9 Staging → Production via scripts/promote_production.py (D-01 first act, PROMOTED line + registry audit trail)
+- ✅ Serving deps installed + pinned: psycopg2-binary 2.9.13, streamlit 1.64.0, python-multipart 0.0.32 (Task 1 human-approved)
+- ✅ config.yaml api.* (model_name, pinned_version 9, tracking_uri) + db.* (database_url "") sections via load_config
+- ✅ Wave 0 fixtures (synthetic_ckd_request, synthetic_batch_csv) + 8 red API stubs (red by design: collection error on api.app until 03-02)
+- ✅ 26 pytest tests green excluding test_api.py; requirements FR-4.4, FR-4.3 foundation delivered
+- ✅ Decisions: promotion script hardcodes v9 (future swaps via config pin + new run); env-over-static config fallback; sys.path bootstrap for plain-script runs
 
 ### Phase 2 plan 02-02 (9-config expansion, complete 2026-09-21)
 
@@ -89,6 +98,6 @@ Start with `/gsd-plan-phase 2` to begin model training (Phase 1 is complete and 
 
 ## Session
 
-**Last session:** 2026-09-23T05:45:50.410Z
-**Stopped at:** Phase 3 context gathered
-**Resume file:** .planning/phases/03-prediction-api-containerization/03-CONTEXT.md
+**Last session:** 2026-09-23T06:36:38Z
+**Stopped at:** Completed 03-01-PLAN.md
+**Resume file:** None
