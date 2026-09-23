@@ -67,6 +67,12 @@
 **Patent impact**: Claim 4 (model version per prediction)
 **Depends on**: Phase 2 (registered model in MLflow)
 
+**Plans:** 4 plans
+- [ ] 03-01-PLAN.md — Promotion v9 to Production plus deps plus config plus Wave 0 API stubs (wave 1)
+- [ ] 03-02-PLAN.md — Tracer: schemas plus loader plus /predict plus /health plus /model_info pinned version live (wave 2)
+- [ ] 03-03-PLAN.md — /batch_predict all-or-nothing plus full-record Postgres logging (wave 3)
+- [ ] 03-04-PLAN.md — Dockerfile plus Compose stack plus Streamlit frontend (wave 3)
+
 ### Tasks
 - [ ] Create `api/app.py` — FastAPI application
 - [ ] Create `api/schemas.py` — Pydantic models with `model_version` field (**Claim 4**)
