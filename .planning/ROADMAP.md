@@ -82,7 +82,7 @@
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [x] 03-03-PLAN.md — /batch_predict all-or-nothing plus full-record Postgres logging (wave 3, complete 2026-09-23: 413 guards + warn-ignore extras + typed response + 45 green)
-- [ ] 03-04-PLAN.md — Dockerfile plus Compose stack plus Streamlit frontend (wave 3)
+- [x] 03-04-PLAN.md — Dockerfile plus Compose stack plus Streamlit frontend (wave 3, complete 2026-09-23: image builds, live v9 on health/model_info/predict, Postgres row logged, 45 green, stack down)
 
 ### Tasks
 
@@ -91,9 +91,9 @@
 - [x] Implement endpoints: `/predict`, `/batch_predict`, `/health`, `/model_info`
 - [x] Resolve production model version from MLflow Registry per request (D-02 deviation: pinned at startup, swaps need restarts)
 - [x] Create prediction logging to PostgreSQL (full-record rows + single-commit batches, mocked-session tests, 03-03)
-- [ ] Create `docker/Dockerfile` for FastAPI service
-- [ ] Create `docker/docker-compose.yml` — FastAPI + MLflow + PostgreSQL
-- [ ] Create `frontend/app.py` — Streamlit UI for predictions
+- [x] Create `docker/Dockerfile` for FastAPI service
+- [x] Create `docker/docker-compose.yml` — FastAPI + MLflow + PostgreSQL
+- [x] Create `frontend/app.py` — Streamlit UI for predictions
 - [x] Write API tests
 
 ---
