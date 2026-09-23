@@ -79,3 +79,28 @@ def synthetic_batch_csv(synthetic_ckd_request):
             {k: ("" if v is None else v) for k, v in synthetic_ckd_request.items()}
         )
     return buf.getvalue()
+
+
+def _batch_csv_from_rows(rows: list[dict]) -> str:
+    """Render request dicts as CSV text under the exact 24-column header."""
+    header = list(NUMERIC_COLS) + list(CATEGORICAL_COLS)
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=header)
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({k: ("" if v is None else v) for k, v in row.items()})
+    return buf.getvalue()
+
+
+@pytest.fixture
+def valid_batch_csv(synthetic_ckd_request):
+    """CSV text of 5 clean rows under the exact 24-column header."""
+    return _batch_csv_from_rows([dict(synthetic_ckd_request) for _ in range(5)])
+
+
+@pytest.fixture
+def bad_row_batch_csv(synthetic_ckd_request):
+    """5-row CSV whose 3rd data row carries an invalid rbc value (D-08)."""
+    rows = [dict(synthetic_ckd_request) for _ in range(5)]
+    rows[2]["rbc"] = "ripe"
+    return _batch_csv_from_rows(rows)

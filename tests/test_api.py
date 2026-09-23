@@ -13,7 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import api.db as db_mod
-from api.app import COLUMN_ORDER, app
+from api.app import COLUMN_ORDER, MAX_BATCH_BYTES, app
 from api.db import PredictionLog
 
 _REAL_CREATE_TABLES = db_mod.create_tables
@@ -176,3 +176,109 @@ def test_create_tables_unreachable_fails_loud(monkeypatch):
     monkeypatch.setattr("api.db.time.sleep", lambda *a, **k: None)
     with pytest.raises(RuntimeError, match="after 3 attempts"):
         db_mod.create_tables()
+
+
+def test_batch_valid_returns_count_and_row_items(valid_batch_csv, mock_session):
+    # 5 clean rows: 200 with count 5, per-row items, pinned version, 1 commit.
+    with TestClient(app) as client:
+        resp = client.post(
+            "/batch_predict",
+            files={"file": ("batch.csv", valid_batch_csv, "text/csv")},
+        )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["count"] == 5
+    assert len(body["predictions"]) == 5
+    assert body["model_version"] == "9"
+    for i, item in enumerate(body["predictions"], start=1):
+        assert item["row"] == i
+        assert item["prediction"] == 1
+        assert item["probability"] == 0.8
+    assert mock_session.add.call_count == 5
+    assert mock_session.commit.call_count == 1
+
+
+def test_batch_bad_row_3_rejects_with_zero_writes(bad_row_batch_csv, mock_session):
+    # D-08 all-or-nothing: offender row 3 named, nothing logged.
+    with TestClient(app) as client:
+        resp = client.post(
+            "/batch_predict",
+            files={"file": ("batch.csv", bad_row_batch_csv, "text/csv")},
+        )
+    assert resp.status_code == 422
+    assert "row 3" in resp.json()["detail"]
+    assert mock_session.add.call_count == 0
+    assert mock_session.commit.call_count == 0
+
+
+def test_batch_missing_column_is_422(valid_batch_csv):
+    # Drop the first column: 422 must name it (exactly-24 per D-07).
+    dropped = COLUMN_ORDER[0]
+    lines = valid_batch_csv.splitlines()
+    payload = "\n".join([",".join(l.split(",")[1:]) for l in lines])
+    with TestClient(app) as client:
+        resp = client.post(
+            "/batch_predict",
+            files={"file": ("batch.csv", payload, "text/csv")},
+        )
+    assert resp.status_code == 422
+    assert dropped in resp.json()["detail"]
+
+
+def test_batch_oversize_body_is_413(mock_session):
+    # T-03-07: bodies over MAX_BATCH_BYTES reject with 413 before parsing.
+    payload = "a" * (MAX_BATCH_BYTES + 1)
+    with TestClient(app) as client:
+        resp = client.post(
+            "/batch_predict",
+            files={"file": ("batch.csv", payload, "text/csv")},
+        )
+    assert resp.status_code == 413
+    assert mock_session.add.call_count == 0
+    assert mock_session.commit.call_count == 0
+
+
+def test_batch_extra_columns_warn_ignored(valid_batch_csv, mock_session):
+    # T-03-08: unexpected extras are ignored, never fed to the pipeline.
+    lines = valid_batch_csv.splitlines()
+    payload = "\n".join([lines[0] + ",mystery_col"] + [l + ",zzz" for l in lines[1:]])
+    with TestClient(app) as client:
+        resp = client.post(
+            "/batch_predict",
+            files={"file": ("batch.csv", payload, "text/csv")},
+        )
+    assert resp.status_code == 200
+    assert resp.json()["count"] == 5
+    assert mock_session.commit.call_count == 1
+
+
+def test_batch_logged_rows_carry_full_record(valid_batch_csv, mock_session):
+    # D-04: every logged row holds all 24 fields + outcome + version + ts.
+    with TestClient(app) as client:
+        resp = client.post(
+            "/batch_predict",
+            files={"file": ("batch.csv", valid_batch_csv, "text/csv")},
+        )
+    assert resp.status_code == 200
+    assert mock_session.add.call_count == 5
+    for call in mock_session.add.call_args_list:
+        logged = call[0][0]
+        assert isinstance(logged, PredictionLog)
+        for col in COLUMN_ORDER:
+            assert getattr(logged, col) is not None or col == "rc"
+        assert logged.prediction == 1
+        assert logged.probability == 0.8
+        assert logged.model_version == "9"
+        assert logged.created_at is not None
+
+
+def test_batch_db_unavailable_returns_503(valid_batch_csv, monkeypatch):
+    # Fail closed (D-03): unset DATABASE_URL serves 503 naming DATABASE_URL.
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    with TestClient(app) as client:
+        resp = client.post(
+            "/batch_predict",
+            files={"file": ("batch.csv", valid_batch_csv, "text/csv")},
+        )
+    assert resp.status_code == 503
+    assert "DATABASE_URL" in resp.json()["detail"]

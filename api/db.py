@@ -8,6 +8,7 @@ is ``None``, table creation warns, and ``/predict`` fails closed with
 """
 from __future__ import annotations
 
+import datetime
 import os
 import time
 
@@ -57,7 +58,14 @@ class PredictionLog(Base):
     prediction: Mapped[int] = mapped_column(Integer)
     probability: Mapped[float] = mapped_column(Float)
     model_version: Mapped[str] = mapped_column(String(32))
-    created_at: Mapped[object] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        # Client-side default mirrors the server default so in-memory
+        # instances (and mocked-session captures) always carry a timestamp
+        # per D-04; the server default still applies on real INSERTs.
+        default=datetime.datetime.now,
+    )
 
 
 # Unbound until lifespan configures it; tests replace this attribute

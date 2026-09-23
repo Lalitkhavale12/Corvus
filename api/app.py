@@ -15,6 +15,7 @@ logged.
 """
 from __future__ import annotations
 
+import datetime
 import io
 from contextlib import asynccontextmanager
 
@@ -105,6 +106,9 @@ def _log_predictions(rows: list[dict], preds: list[int], probas: list[float]) ->
                     prediction=pred,
                     probability=proba,
                     model_version=app.state.model_version,
+                    # Stamp here (not only server_default) so every row
+                    # instance carries its D-04 timestamp, mocked or real.
+                    created_at=datetime.datetime.now(),
                 )
             )
         session.commit()
