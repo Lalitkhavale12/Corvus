@@ -87,13 +87,15 @@ def create_tables(retries: int = 3) -> bool:
     Raises loudly when a configured store stays unreachable (T-03-06) —
     Compose health-gated Postgres removes the startup race in deployment.
     """
-    engine = get_engine()
-    if engine is None:
-        log.warning("DATABASE_URL unset — prediction log unavailable (/predict will 503)")
-        return False
     last_exc: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
+            engine = get_engine()
+            if engine is None:
+                log.warning(
+                    "DATABASE_URL unset — prediction log unavailable (/predict will 503)"
+                )
+                return False
             Base.metadata.create_all(bind=engine)
             return True
         except Exception as exc:
