@@ -1,0 +1,48 @@
+# Corvus pipeline configuration
+
+data:
+  raw_path: "data/raw/kidney_disease.csv"
+  processed_dir: "data/processed"
+  validation_dir: "data/validation"
+  target_column: "classification"
+  positive_label: "ckd"          # value in target_column meaning "disease present"
+  id_column: "id"                # dropped from features if present; preserved as __source_id lineage sidecar
+  numeric_cols: ["age", "bp", "sg", "al", "su", "bgr", "bu", "sc", "sod", "pot",
+    "hemo", "pcv", "wc", "rc"]
+  categorical_cols: ["rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane"]
+
+validation:
+  min_rows: 300
+  max_rows: 500
+  fail_on_duplicates: true       # exact-duplicate raw rows fail the gate (likely capture error)
+
+split:
+  test_size: 0.2
+  val_size: 0.1                  # taken from the remaining train set
+  random_state: 42
+  stratify: true
+
+preprocessing:
+  numeric_impute_strategy: "median"
+  categorical_impute_strategy: "most_frequent"
+  scale_numeric: true
+  encode_categorical: "onehot"   # onehot | ordinal
+
+logging:
+  level: "INFO"
+  log_dir: "logs"
+
+mlflow:
+  tracking_uri: "mlruns"
+  experiment_name: "corvus-ckd"
+
+api:
+  model_name: "corvus-ckd"
+  pinned_version: "9"
+  # tracking_uri honors MLFLOW_TRACKING_URI env with mlruns fallback (see
+  # scripts/promote_production.py and api/model_loader.py); static default here.
+  tracking_uri: "mlruns"
+
+db:
+  # database_url empty default; read from DATABASE_URL env at runtime.
+  database_url: ""
