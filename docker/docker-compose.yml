@@ -1,13 +1,24 @@
 # Corvus demo stack (D-03): FastAPI + MLflow + PostgreSQL.
 #
-# OQ2 decision (zero migration): the mlflow service volume-mounts the host
-# mlruns/ file store — the same store the D-01 promotion wrote — instead of
-# migrating runs to a Postgres backend. Phase 5 can revisit if drift reads
-# need SQL access to runs.
+# OQ2 decision (zero migration): the mlflow service fronts the file store —
+# the same store the D-01 promotion wrote — instead of migrating runs to a
+# Postgres backend. Phase 5 can revisit if drift reads need SQL access.
+#
+# Windows-host NOTE (Task 3 Rule 3 fix): the file store records ABSOLUTE
+# Windows artifact URIs (c:\...\mlruns/...), which a Linux container cannot
+# resolve even with the directory mounted — every models:/ / runs:/ artifact
+# read fails with "No such artifact". The fix is a synced copy with ONLY the
+# location prefix rebased to /mlruns (run IDs, versions, stages, artifact
+# bytes untouched — still the D-01 v9). Regenerate after any new
+# training/promotion, before compose up:
+#     .\venv\python.exe docker/sync_mlruns_container.py
+# Host mlruns/ is never modified by the sync.
 #
 # NOTE on relative paths: compose resolves them from this file's directory
-# (docker/), so the project root is ".." and the host file store is
-# "../mlruns". A bare "./mlruns" would resolve to docker/mlruns (missing).
+# (docker/), so the project root is ".." for the build context while the
+# container-ready store lives alongside this file ("./.mlruns.container").
+# A bare host-mlruns mount would serve Windows-absolute artifact URIs the
+# Linux containers cannot read (see OQ2 note above).
 #
 # Credentials are dev-only corvus/corvus for the local demo (T-03-12,
 # accepted): real secrets never commit — .env stays gitignored.
@@ -35,6 +46,10 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://corvus:corvus@db:5432/corvus
       MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      # Container-readable registry copy (see OQ2 note): the loader resolves
+      # models:/ + runs:/ artifact URIs to /mlruns paths inside this box.
+      - ./.mlruns.container:/mlruns
     depends_on:
       db:
         condition: service_healthy
@@ -46,8 +61,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ../mlruns:/mlruns
-    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri file:///mlruns --default-artifact-root file:///mlruns
+      - ./.mlruns.container:/mlruns
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri file:///mlruns --default-artifact-root file:///mlruns --allowed-hosts "mlflow:*"
     depends_on:
       db:
         condition: service_healthy

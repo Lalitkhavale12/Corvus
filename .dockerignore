@@ -1,0 +1,15 @@
+# Keep the api-image build context to what the Dockerfile copies.
+venv/
+mlruns/
+data/
+logs/
+models/
+reports/
+notebooks/
+.git/
+.planning/
+.gsd/
+airflow/
+__pycache__/
+.pytest_cache/
+*.pyc
