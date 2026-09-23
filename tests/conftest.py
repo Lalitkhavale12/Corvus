@@ -3,6 +3,9 @@
 Provides a 40-row synthetic CKD-shaped fixture plus a tmp MLflow
 tracking-URI fixture. Never touches real data/ or real mlruns/.
 """
+import csv
+import io
+
 import mlflow
 import pandas as pd
 import pytest
@@ -35,3 +38,44 @@ def tmp_mlflow_store(tmp_path, monkeypatch):
     mlflow.set_tracking_uri(uri)
     yield uri
     mlflow.set_tracking_uri(uri)
+
+
+# Phase 3 Wave 0 fixtures: API request shapes for tests/test_api.py (03-01).
+# Valid categorical literals verified against the 400-row raw source
+# (03-RESEARCH.md 24-field schema table); never real data/ or real Postgres.
+_VALID_CATEGORICALS = {
+    "rbc": "normal",
+    "pc": "normal",
+    "pcc": "notpresent",
+    "ba": "notpresent",
+    "htn": "no",
+    "dm": "no",
+    "cad": "no",
+    "appet": "good",
+    "pe": "no",
+    "ane": "no",
+}
+
+
+@pytest.fixture
+def synthetic_ckd_request():
+    """One valid 24-field /predict body; rc None exercises the imputer path."""
+    request = {col: 1.0 for col in NUMERIC_COLS}
+    request["rc"] = None
+    for col in CATEGORICAL_COLS:
+        request[col] = _VALID_CATEGORICALS[col]
+    return request
+
+
+@pytest.fixture
+def synthetic_batch_csv(synthetic_ckd_request):
+    """CSV text of 3 valid rows under the 24-column header for /batch_predict."""
+    header = list(NUMERIC_COLS) + list(CATEGORICAL_COLS)
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=header)
+    writer.writeheader()
+    for _ in range(3):
+        writer.writerow(
+            {k: ("" if v is None else v) for k, v in synthetic_ckd_request.items()}
+        )
+    return buf.getvalue()
