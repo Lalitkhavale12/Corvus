@@ -65,7 +65,7 @@
 
 ## Phase 3: Prediction API + Containerization
 
-**Status**: 🔄 In Progress (03-01, 03-02 complete 2026-09-23)
+**Status**: 🔄 In Progress (03-01, 03-02, 03-03 complete 2026-09-23)
 **Delivers**: FastAPI service, Docker Compose stack, PostgreSQL prediction logging
 **Patent impact**: Claim 4 (model version per prediction)
 **Depends on**: Phase 2 (registered model in MLflow)
@@ -81,7 +81,7 @@
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 03-03-PLAN.md — /batch_predict all-or-nothing plus full-record Postgres logging (wave 3)
+- [x] 03-03-PLAN.md — /batch_predict all-or-nothing plus full-record Postgres logging (wave 3, complete 2026-09-23: 413 guards + warn-ignore extras + typed response + 45 green)
 - [ ] 03-04-PLAN.md — Dockerfile plus Compose stack plus Streamlit frontend (wave 3)
 
 ### Tasks
@@ -90,7 +90,7 @@
 - [x] Create `api/schemas.py` — Pydantic models with `model_version` field (**Claim 4**)
 - [x] Implement endpoints: `/predict`, `/batch_predict`, `/health`, `/model_info`
 - [x] Resolve production model version from MLflow Registry per request (D-02 deviation: pinned at startup, swaps need restarts)
-- [ ] Create prediction logging to PostgreSQL
+- [x] Create prediction logging to PostgreSQL (full-record rows + single-commit batches, mocked-session tests, 03-03)
 - [ ] Create `docker/Dockerfile` for FastAPI service
 - [ ] Create `docker/docker-compose.yml` — FastAPI + MLflow + PostgreSQL
 - [ ] Create `frontend/app.py` — Streamlit UI for predictions

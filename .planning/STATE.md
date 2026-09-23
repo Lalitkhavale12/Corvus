@@ -8,7 +8,7 @@ progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 9
-  completed_plans: 6
+  completed_plans: 7
   percent: 0
 current_phase_name: Prediction API + Containerization
 ---
@@ -20,8 +20,8 @@ current_phase_name: Prediction API + Containerization
 ## Current Position
 
 - **Milestone**: M1 (Initial Build)
-- **Active Phase**: Phase 3 — Prediction API + Containerization (plans 03-01, 03-02 complete 2026-09-23)
-- **Next Phase**: Phase 3 plan 03-03 (batch logging hardening + full-record Postgres logging)
+- **Active Phase**: Phase 3 — Prediction API + Containerization (plans 03-01, 03-02, 03-03 complete 2026-09-23)
+- **Next Phase**: Phase 3 plan 03-04 (Dockerfile + Compose stack + Streamlit frontend)
 - **Blocked**: Nothing
 
 ## Phase Status
@@ -30,12 +30,22 @@ current_phase_name: Prediction API + Containerization
 |---|---|---|
 | 1 — Data Pipeline | ✅ Complete | 2026-09-19 |
 | 2 — Model Training | ✅ Implementation Complete (02-01 tracer + 02-02 expansion done) | 2026-09-21 |
-| 3 — API + Containers | 🔄 In Progress (03-01, 03-02 done 2026-09-23) | 2026-09-23 |
+| 3 — API + Containers | 🔄 In Progress (03-01, 03-02, 03-03 done 2026-09-23) | 2026-09-23 |
 | 4 — CI/CD + Monitoring | ⬜ Not Started | — |
 | 5 — Drift + Retraining | ⬜ Not Started | — |
 | 6 — Visualization + Polish | ⬜ Not Started | — |
 
 ## Completed Work
+
+### Phase 3 plan 03-03 (batch expansion, complete 2026-09-23)
+
+- ✅ Hardened POST /batch_predict: MAX_BATCH_BYTES 5000000 + MAX_BATCH_ROWS 10000 with 413 before full parse, lineage/target dropped via imported constants, missing-column 422, extras warn-ignored (T-03-08), all-or-nothing with first-offender row number, single commit
+- ✅ BatchPredictionItem/BatchPredictionResponse schemas (row, prediction, probability, count, model_version 9)
+- ✅ D-04 full record: per-row created_at stamp + column default; every logged row holds 24 fields + outcome + version + timestamp
+- ✅ 7 new tests (valid batch, row-3 zero-write rejection, missing column, 413 oversize, extras ignored, full-record shape, batch 503); API file 19 passed, full suite 45 passed, 0 failed
+- ✅ db.py review clean: no raw SQL, retry only around create_tables, DATABASE_URL value never logged
+- ✅ Requirements FR-4.1, FR-4.2, FR-4.3, FR-5.2 delivered
+- ✅ Decisions: warn-ignore over 422 for extras; per-row created_at stamp; single shared commit call site (not 2 per-route)
 
 ### Phase 3 plan 03-02 (tracer slice, complete 2026-09-23)
 
@@ -107,6 +117,6 @@ Start with `/gsd-plan-phase 2` to begin model training (Phase 1 is complete and 
 
 ## Session
 
-**Last session:** 2026-09-23T06:59:10Z
-**Stopped at:** Completed 03-02-PLAN.md
+**Last session:** 2026-09-23T07:15:00Z
+**Stopped at:** Completed 03-03-PLAN.md
 **Resume file:** None
