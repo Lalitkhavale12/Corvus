@@ -24,6 +24,7 @@
 **Patent impact**: Claim 2 (pipeline artifact exists)
 
 ### Completed
+
 - [x] Raw data ingestion with UCI CKD quirk handling (`src/ingestion/load_data.py`)
 - [x] Data quality summary to `reports/` (`summarize()`)
 - [x] Leak-safe preprocessing: split-first, fit on train only (`src/preprocessing/preprocess.py`)
@@ -33,6 +34,7 @@
 - [x] 4 pytest tests passing (clean, split disjointness, Pipeline type, no NaN)
 
 ### Remaining
+
 - [x] EDA notebook (`notebooks/01_eda_ckd.ipynb`) — distributions, correlations, missing-value heatmap
 - [x] Great Expectations data validation schema (`data/validation/ckd_suite.json` + `validate.py`, GX 1.x)
 - [x] Additional test coverage (ingestion tests, `save_outputs()` integration test — 13/13 green)
@@ -47,6 +49,7 @@
 **Depends on**: Phase 1 outputs (`data/processed/`, `preprocessing_pipeline.joblib`)
 
 ### Tasks
+
 - [x] Plan 02-01 tracer: LR end-to-end (`src/training/train.py`), strict ROC-AUC ranking + Staging (`src/evaluation/evaluate.py`), Wave 0 fixtures
 - [x] Plan 02-02 expansion: `src/training/train.py` — LR, Decision Tree, Random Forest, Gradient Boosting, XGBoost, LightGBM (seeded, one rationale each)
 - [x] Plan 02-02 expansion: `src/training/train_mlp.py` — MLP with Sigmoid, Tanh, ReLU as separate runs
@@ -68,12 +71,21 @@
 **Depends on**: Phase 2 (registered model in MLflow)
 
 **Plans:** 4 plans
+**Wave 1**
+
 - [ ] 03-01-PLAN.md — Promotion v9 to Production plus deps plus config plus Wave 0 API stubs (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 03-02-PLAN.md — Tracer: schemas plus loader plus /predict plus /health plus /model_info pinned version live (wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 03-03-PLAN.md — /batch_predict all-or-nothing plus full-record Postgres logging (wave 3)
 - [ ] 03-04-PLAN.md — Dockerfile plus Compose stack plus Streamlit frontend (wave 3)
 
 ### Tasks
+
 - [ ] Create `api/app.py` — FastAPI application
 - [ ] Create `api/schemas.py` — Pydantic models with `model_version` field (**Claim 4**)
 - [ ] Implement endpoints: `/predict`, `/batch_predict`, `/health`, `/model_info`
@@ -93,6 +105,7 @@
 **Depends on**: Phase 3 (Docker image to build/push)
 
 ### Tasks
+
 - [ ] Create `.github/workflows/ci.yml` — test → build → push image
 - [ ] Create `src/monitoring/metrics.py` — Prometheus instrumentation (latency, request count, error rate)
 - [ ] Create Grafana dashboard JSON/provisioning
@@ -109,6 +122,7 @@
 **Depends on**: Phase 4 (monitoring infrastructure)
 
 ### Tasks
+
 - [ ] Create `src/monitoring/drift.py` — Evidently AI report (UCI-336 baseline vs. UCI-857 batch)
 - [ ] Create `airflow/dags/` — 5 trigger-type DAGs (**Claim 5**)
 - [ ] Implement conditional retrain → re-register → redeploy
@@ -127,6 +141,7 @@
 **Can run in parallel with**: Phase 2+ (only depends on Phase 1 data)
 
 ### Tasks
+
 - [ ] Create `src/visualization/` module (**Component 102**)
 - [ ] End-to-end integration testing
 - [ ] Documentation pass, architecture diagram, demo script
