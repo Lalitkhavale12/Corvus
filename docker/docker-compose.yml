@@ -1,0 +1,56 @@
+# Corvus demo stack (D-03): FastAPI + MLflow + PostgreSQL.
+#
+# OQ2 decision (zero migration): the mlflow service volume-mounts the host
+# mlruns/ file store — the same store the D-01 promotion wrote — instead of
+# migrating runs to a Postgres backend. Phase 5 can revisit if drift reads
+# need SQL access to runs.
+#
+# NOTE on relative paths: compose resolves them from this file's directory
+# (docker/), so the project root is ".." and the host file store is
+# "../mlruns". A bare "./mlruns" would resolve to docker/mlruns (missing).
+#
+# Credentials are dev-only corvus/corvus for the local demo (T-03-12,
+# accepted): real secrets never commit — .env stays gitignored.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: corvus
+      POSTGRES_PASSWORD: corvus
+      POSTGRES_DB: corvus
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U corvus -d corvus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://corvus:corvus@db:5432/corvus
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      db:
+        condition: service_healthy
+
+  mlflow:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ../mlruns:/mlruns
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri file:///mlruns --default-artifact-root file:///mlruns
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
