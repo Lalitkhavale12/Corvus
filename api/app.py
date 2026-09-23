@@ -24,6 +24,8 @@ from fastapi.responses import JSONResponse
 
 from api import db, model_loader
 from api.schemas import (
+    BatchPredictionItem,
+    BatchPredictionResponse,
     CKDRequest,
     HealthResponse,
     ModelInfoResponse,
@@ -41,6 +43,10 @@ TARGET_COL = load_config()["data"]["target_column"]
 DROP_COLS = {TARGET_COL, LINEAGE_ROW_COL, LINEAGE_ID_COL}
 
 PINNED_RESOLUTION = "pinned-at-startup"
+
+# Upload guards (T-03-07): reject before parsing eats memory.
+MAX_BATCH_BYTES = 5000000
+MAX_BATCH_ROWS = 10000
 
 
 @asynccontextmanager
@@ -124,7 +130,7 @@ def predict(body: CKDRequest):
     )
 
 
-@app.post("/batch_predict")
+@app.post("/batch_predict", response_model=BatchPredictionResponse)
 def batch_predict(file: UploadFile):
     """CSV upload with the 24 columns; all-or-nothing per D-08.
 
@@ -133,16 +139,29 @@ def batch_predict(file: UploadFile):
     after all rows predict successfully.
     """
     _require_log_store()
+    raw = file.file.read()
+    if len(raw) > MAX_BATCH_BYTES:
+        raise HTTPException(status_code=413, detail="batch upload exceeds size limit")
     try:
-        frame = pd.read_csv(io.StringIO((file.file.read()).decode("utf-8")))
+        text = raw.decode("utf-8")
+    except Exception as exc:
+        log.warning(f"Batch CSV decode failed: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=422, detail="batch CSV could not be parsed")
+    n_data_rows = len(text.strip().splitlines()) - 1
+    if n_data_rows > MAX_BATCH_ROWS:
+        raise HTTPException(status_code=413, detail="batch upload exceeds row limit")
+    try:
+        frame = pd.read_csv(io.StringIO(text))
     except Exception as exc:
         log.warning(f"Batch CSV parse failed: {type(exc).__name__}: {exc}")
         raise HTTPException(status_code=422, detail="batch CSV could not be parsed")
-    unexpected = set(frame.columns) - set(COLUMN_ORDER) - DROP_COLS
+    # Lineage metadata plus the target never reach the pipeline (D-07):
+    # dropped via the imported constants, never string literals.
+    frame = frame.drop(columns=[c for c in DROP_COLS if c in frame.columns])
+    unexpected = set(frame.columns) - set(COLUMN_ORDER)
     if unexpected:
-        raise HTTPException(
-            status_code=422, detail=f"unexpected columns: {sorted(unexpected)}"
-        )
+        # Warn-and-ignore (train.py extras pattern): never fed to the pipeline.
+        log.warning(f"Ignoring unexpected batch columns: {sorted(unexpected)}")
     missing = [c for c in COLUMN_ORDER if c not in frame.columns]
     if missing:
         raise HTTPException(status_code=422, detail=f"missing columns: {missing}")
@@ -156,12 +175,14 @@ def batch_predict(file: UploadFile):
     batch = pd.DataFrame(rows)[COLUMN_ORDER]
     preds, probas = _predict_frame(batch)
     _log_predictions(rows, preds, probas)
-    return {
-        "predictions": [
-            {"prediction": p, "probability": q} for p, q in zip(preds, probas)
+    return BatchPredictionResponse(
+        predictions=[
+            BatchPredictionItem(row=i, prediction=p, probability=q)
+            for i, (p, q) in enumerate(zip(preds, probas), start=1)
         ],
-        "model_version": app.state.model_version,
-    }
+        count=len(preds),
+        model_version=app.state.model_version,
+    )
 
 
 @app.get("/health", response_model=HealthResponse)

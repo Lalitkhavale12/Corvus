@@ -75,3 +75,19 @@ class ModelInfoResponse(BaseModel):
     model_version: str
     run_id: str
     resolution: str
+
+
+class BatchPredictionItem(BaseModel):
+    """One scored batch row: 1-indexed data-row number plus outcome."""
+
+    row: int
+    prediction: int
+    probability: float
+
+
+class BatchPredictionResponse(BaseModel):
+    """All-or-nothing batch outcome stamped with the pinned version (D-08)."""
+
+    predictions: list[BatchPredictionItem]
+    count: int
+    model_version: str
