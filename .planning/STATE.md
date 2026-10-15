@@ -2,8 +2,8 @@
 gsd_state_version: "1.0"
 status: unknown
 stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-10-15T08:05:03Z"
-state_head: e94acff
+last_updated: "2026-10-15T15:07:50Z"
+state_head: 427b717
 progress:
   total_phases: 7
   completed_phases: 0
@@ -20,9 +20,9 @@ current_phase_name: NHANES Native Retrain
 ## Current Position
 
 - **Milestone**: M1 (Initial Build)
-- **Active Phase**: Phase 7 — NHANES Native Retrain (07-01 complete; 07-02 tasks 1-2 complete 2026-10-15, BLOCKING-HUMAN promotion gate OPEN for challenger v11)
-- **Next Phase**: Human gate decision on 07-02 task 3 (APPROVE v11 → promote + pin for 07-03; REJECT → v9 stays) then 07-03 v2 serving
-- **Blocked**: 07-02 task 3 + 07-03 v2 pin await the human promotion decision — by design (D-04)
+- **Active Phase**: Phase 7 — NHANES Native Retrain (07-01 complete; 07-02 COMPLETE 2026-10-15 — gate APPROVED, v11 Production, pin "11" for 07-03)
+- **Next Phase**: 07-03 v2 serving (pin api.v2_pinned_version="11", gradient-boosting run 5954f069)
+- **Blocked**: Nothing — gate resolved; 07-03 unblocked
 
 ## Phase Status
 
@@ -32,13 +32,13 @@ current_phase_name: NHANES Native Retrain
 | 2 — Model Training | ✅ Implementation Complete (02-01 tracer + 02-02 expansion done) | 2026-09-21 |
 | 3 — API + Containers | ✅ Complete (03-01, 03-02, 03-03, 03-04 done 2026-09-23) | 2026-09-23 |
 | 4 — CI/CD + Monitoring | ⬜ Not Started | — |
-| 7 — NHANES Native Retrain | 🔄 In Progress (07-01 complete; 07-02 gate open for v11) | 2026-10-15 |
+| 7 — NHANES Native Retrain | 🔄 In Progress (07-01 + 07-02 complete 2026-10-15: v11 Production, pin "11"; 07-03 pending) | 2026-10-15 |
 | 5 — Drift + Retraining | ⬜ Not Started | — |
 | 6 — Visualization + Polish | ⬜ Not Started | — |
 
 ## Completed Work
 
-### Phase 7 plan 07-02 (9-config sweep + paired comparison, tasks 1-2 complete 2026-10-15; task 3 GATE OPEN)
+### Phase 7 plan 07-02 (9-config sweep + paired comparison + APPROVED promotion, COMPLETE 2026-10-15)
 
 - ✅ 9-config `NATIVE_ESTIMATORS` (6 classical Phase-2 verbatim + MLP sigmoid/tanh/relu via ACTIVATIONS, all seed 42) with dev-only `run_cv_native` (fresh pipeline per fold), `bootstrap_auc_ci` (B=2000, default_rng 42), `sweep_native` + strict-max `select_by_cv`
 - ✅ Live sweep: gradient-boosting wins (CV-mean 0.8203 ± 0.0135; DT trails 0.6310), refit on full dev, single holdout scoring (roc_auc 0.8265, CI [0.7910, 0.8572]), Claim-2 run 5954f069 + `holdout_predictions.csv` artifact, registered as corvus-ckd v11
@@ -47,8 +47,8 @@ current_phase_name: NHANES Native Retrain
 - ✅ Registry: v9 Production untouched, v10 (tracer) → Archived, v11 → Staging; `promote_challenger.py --version` created, --help verified, NEVER executed
 - ✅ 9 new tests (exact-set/seeds, CV + bootstrap determinism, no-UCI-AUC scan, paired same-rows/labels, strict-max, harmonized frame, Production guard, api isolation); full suite 59 passed, 0 failed
 - ✅ Decisions: winner picked on dev CV before any holdout peek; holdout-predictions artifact makes single-scoring + same-rows proof jointly satisfiable; commits on main per sequential instruction + 07-01 precedent
-- ✅ Requirements FR-2.4, FR-2.5, FR-3.1, FR-3.2 delivered (FR-2.1–2.3 carried); FR-3.3 awaits the gate
-- ⏳ GATE OPEN: APPROVE (run promote_challenger --version 11, record pin for 07-03) or REJECT (v9 stays, v11 held in Staging)
+- ✅ Requirements FR-2.4, FR-2.5, FR-3.1, FR-3.2, FR-3.3 delivered (FR-2.1–2.3 carried)
+- ✅ GATE APPROVED + EXECUTED 2026-10-15: PROMOTED corvus-ckd version=11 stage=Production; post-state v11 Production (run 5954f069) / v9 Archived (run 10ac3e5e, artifacts intact, never deleted) / all 11 versions present; full suite 59 passed post-promotion; **api.v2_pinned_version="11" for 07-03**
 
 ### Phase 7 plan 07-01 (tracer native retrain, complete 2026-10-15)
 
@@ -142,6 +142,7 @@ current_phase_name: NHANES Native Retrain
 | D9 | Gradient-boosting wins native sweep on dev CV before any holdout peek | 2026-10-15 | CV-mean 0.8203 strict-max; single holdout scoring 0.8265; 07-02 live run |
 | D10 | Holdout-predictions artifact as the evaluation handoff | 2026-10-15 | Logged row_id/y_true/y_proba lets evaluation prove same-rows/same-labels with zero native refitting (07-02 deviation) |
 | D11 | v11 Staging, v10 Archived, v9 Production; promotion script unrun | 2026-10-15 | Gate-pending registry posture; no Production transition without explicit approval (D-04) |
+| D12 | APPROVE v11 executed: v11 Production, v9 Archived intact, api.v2_pinned_version="11" for 07-03 | 2026-10-15 | Explicit human approval crossed the D-04 boundary; archive_existing_versions transitioned v9 (never deleted); hard-cutover pin handed to serving |
 
 ## Open Questions
 
@@ -154,6 +155,6 @@ Start with `/gsd-plan-phase 2` to begin model training (Phase 1 is complete and 
 
 ## Session
 
-**Last session:** 2026-10-15T08:05:03Z
-**Stopped at:** 07-02 tasks 1-2 complete (sweep + comparison live, v11 Staging); BLOCKING-HUMAN gate open on task 3
+**Last session:** 2026-10-15T15:07:50Z
+**Stopped at:** 07-02 COMPLETE (sweep + comparison + APPROVED v11 promotion live, pin "11" recorded); 07-03 v2 serving unblocked
 **Resume file:** .planning/phases/07-nhanes-native-retrain/07-02-SUMMARY.md
