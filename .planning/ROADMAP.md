@@ -151,7 +151,7 @@
 
 ## Phase 7: NHANES Native Retrain
 
-**Status**: ⬜ Not Started
+**Status**: 🔄 In Progress (07-01 complete 2026-10-15)
 **Delivers**: NHANES-native pipeline + 9 configs trained on 5,343 derived rows, CV + CIs, challenger vs v9 champion, winner promoted, API serving new schema
 **Patent impact**: None new (exercises Claim 2 + Claim 4 on a second cohort)
 **Depends on**: Phase 3 (registry + serving loop); data track (`data/nhanes/nhanes_ckd_derived.csv`, `NHANES_PROTOCOL.md`)
@@ -160,7 +160,7 @@
 **Plans:** 3 plans
 **Wave 1**
 
-- [ ] 07-01-PLAN.md — Tracer: native pipeline plus quarantine gate plus LR Claim-2 run plus Wave 0 training tests (wave 1)
+- [x] 07-01-PLAN.md — Tracer: native pipeline plus quarantine gate plus LR Claim-2 run plus Wave 0 training tests (wave 1, complete 2026-10-15: LR holdout roc_auc=0.8246, challenger v10, suite 50 passed)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 

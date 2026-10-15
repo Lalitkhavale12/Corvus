@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: unknown
-stopped_at: Phase 7 context gathered
-last_updated: "2026-10-15T07:10:14.216Z"
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-10-15T07:36:00Z"
 state_head: d5148e517aac949c97fe425ca41661a322519d94
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 12
-  completed_plans: 9
+  completed_plans: 10
   percent: 0
 current_phase_name: NHANES Native Retrain
 ---
@@ -20,8 +20,8 @@ current_phase_name: NHANES Native Retrain
 ## Current Position
 
 - **Milestone**: M1 (Initial Build)
-- **Active Phase**: Phase 3 — Prediction API + Containerization (plans 03-01, 03-02, 03-03, 03-04 complete 2026-09-23)
-- **Next Phase**: Phase 4 — CI/CD + Monitoring (compose stack + images ready to build/push)
+- **Active Phase**: Phase 7 — NHANES Native Retrain (plan 07-01 complete 2026-10-15; 07-02/07-03 unblocked)
+- **Next Phase**: Phase 7 Wave 2 (07-02 9-config sweep, 07-03 v2 serving)
 - **Blocked**: Nothing
 
 ## Phase Status
@@ -32,10 +32,21 @@ current_phase_name: NHANES Native Retrain
 | 2 — Model Training | ✅ Implementation Complete (02-01 tracer + 02-02 expansion done) | 2026-09-21 |
 | 3 — API + Containers | ✅ Complete (03-01, 03-02, 03-03, 03-04 done 2026-09-23) | 2026-09-23 |
 | 4 — CI/CD + Monitoring | ⬜ Not Started | — |
+| 7 — NHANES Native Retrain | 🔄 In Progress (07-01 complete) | 2026-10-15 |
 | 5 — Drift + Retraining | ⬜ Not Started | — |
 | 6 — Visualization + Polish | ⬜ Not Started | — |
 
 ## Completed Work
+
+### Phase 7 plan 07-01 (tracer native retrain, complete 2026-10-15)
+
+- ✅ Native config keys in config.yaml (16+5 allow-list, 11 quarantine names, 0.2/42 split, 5-fold, 2000 bootstrap; existing keys byte-identical) + `mlflow.nhanes_experiment_name` + `api.v2_pinned_version=""`
+- ✅ `src/preprocessing/preprocess_nhanes.py`: QUARANTINE_11, DERIVED_LABEL_DISCLOSURE (D-08), allow-list column lists, gate-before-split, unfitted native pipeline, locked 80/20 split
+- ✅ `src/training/train_nhanes.py`: LR-only NATIVE_ESTIMATORS (seed 42), run_experiment_native (gate → locked split → dev-only fit → Claim-2 run schema=nhanes-native)
+- ✅ Live tracer: holdout roc_auc=0.8246 (accuracy 0.85, recall 0.28), challenger corvus-ckd v10 registered in stage None; v9 stays Production
+- ✅ 5 Wave 0 tests (quarantine abort, pipeline shape, tmp-store Claim-2, holdout disjoint, seeded LR); full suite 50 passed, 0 failed
+- ✅ Decisions: gate checks the projected training frame (raw CSV carries label-source cols by design); native pipeline artifact filename distinct from v1; v10 left in stage None for the 07-02 comparison + human gate
+- ✅ Requirements FR-2.1, FR-2.2, FR-2.3 opened here
 
 ### Phase 3 plan 03-04 (containerization + frontend, complete 2026-09-23)
 
@@ -114,6 +125,8 @@ current_phase_name: NHANES Native Retrain
 | D4 | React → Streamlit | 2026-09-19 | Single Python file, no frontend build |
 | D5 | Synthetic datasets rejected | 2026-09-19 | Leaky labels, circular labeling |
 | D6 | Abu Dhabi EHR deferred | 2026-09-19 | Different modeling paradigm (survival analysis) |
+| D7 | Quarantine gate on projected training frame | 2026-10-15 | Raw derived CSV carries the 11 label-source cols by design; gate the 16+5 projection before split (07-01 deviation) |
+| D8 | Challenger v10 in stage None, v9 untouched | 2026-10-15 | Registration only in tracer; stages wait for 07-02 comparison + D-04 human gate |
 
 ## Open Questions
 
@@ -126,6 +139,6 @@ Start with `/gsd-plan-phase 2` to begin model training (Phase 1 is complete and 
 
 ## Session
 
-**Last session:** 2026-10-15T06:29:25.631Z
-**Stopped at:** Phase 7 context gathered
-**Resume file:** .planning/phases/07-nhanes-native-retrain/07-CONTEXT.md
+**Last session:** 2026-10-15T07:36:00Z
+**Stopped at:** Completed 07-01-PLAN.md (tracer native retrain; 07-02/07-03 unblocked)
+**Resume file:** None
