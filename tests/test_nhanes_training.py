@@ -187,3 +187,126 @@ def test_no_recorded_uci_auc_reference():
     src = pathlib.Path(nhanes_mod.__file__).read_text()
     assert re.search(r"\buci\b", src, re.IGNORECASE) is None
     assert "1.0" not in src
+
+
+# --- 07-02 Task 2: harmonization adapter plus paired comparison ---
+
+from types import SimpleNamespace
+
+from src.evaluation import evaluate_nhanes as eval_mod
+from src.training import harmonize_v9 as harm_mod
+
+
+def _paired_inputs(seed: int = 7):
+    rng = np.random.default_rng(seed)
+    y = np.array([1] * 12 + [0] * 48)
+    p_challenger = np.clip(rng.normal(0.62, 0.2, 60), 0.01, 0.99)
+    p_v9 = np.clip(rng.normal(0.55, 0.2, 60), 0.01, 0.99)
+    return y, p_challenger, p_v9
+
+
+def test_paired_comparison_same_rows_same_labels():
+    y, p_c, p_v = _paired_inputs()
+    assert len(y) == len(p_c) == len(p_v)  # identical row counts
+    result = eval_mod.compare_challenger(y, p_c, p_v, n_reps=50, seed=42)
+    assert result.success
+    # Same label vector scores both models: recompute matches the report.
+    from sklearn.metrics import roc_auc_score
+
+    assert result.challenger_auc == roc_auc_score(y, p_c)
+    assert result.v9_auc == roc_auc_score(y, p_v)
+    assert result.qualifies == (result.challenger_auc > result.v9_auc)
+    assert result.disclosure == DERIVED_LABEL_DISCLOSURE
+    # Strict-greater: dead heat never qualifies.
+    tied = eval_mod.compare_challenger(y, p_c, p_c, n_reps=50, seed=42)
+    assert tied.qualifies is False
+    # Mismatched row counts are refused, never silently compared.
+    with pytest.raises(ValueError):
+        eval_mod.paired_bootstrap_diff(y, p_c[:30], p_v, n_reps=10)
+
+
+def test_paired_bootstrap_determinism():
+    y, p_c, p_v = _paired_inputs()
+    first = eval_mod.paired_bootstrap_diff(y, p_c, p_v, n_reps=50, seed=42)
+    second = eval_mod.paired_bootstrap_diff(y, p_c, p_v, n_reps=50, seed=42)
+    assert first == second  # seed-fixed determinism
+    assert first["lo"] <= first["hi"]
+
+
+def test_aggregate_cv_strict_max():
+    cv_results = {
+        "logistic-regression": {"mean_auc": 0.80, "std_auc": 0.01},
+        "mlp-relu": {"mean_auc": 0.83, "std_auc": 0.02},
+        "xgboost": {"mean_auc": 0.81, "std_auc": 0.01},
+    }
+    assert eval_mod.aggregate_cv(cv_results) == "mlp-relu"
+
+
+def test_harmonize_frame_shape_and_fill(synthetic_nhanes_df):
+    df = _native_frame(synthetic_nhanes_df)
+    numeric_cols, categorical_cols = get_nhanes_column_lists()
+    modes = {col: f"{col}_mode" for col in harm_mod.V9_CATEGORICALS}
+    harmonized = harm_mod.harmonize_frame(df[numeric_cols + categorical_cols], modes)
+    from src.preprocessing.preprocess import get_column_lists
+
+    uci_numeric, uci_cats = get_column_lists()
+    assert list(harmonized.columns) == uci_numeric + uci_cats  # full UCI-24 frame
+    assert len(harmonized) == len(df)
+    for col in harm_mod.V9_CATEGORICALS:  # frozen most-frequent fills
+        assert (harmonized[col] == modes[col]).all()
+    for uci_col, nh_col in harm_mod.NHANES_TO_UCI_MAP.items():  # mapped numerics
+        assert np.allclose(
+            harmonized[uci_col].to_numpy(dtype=float),
+            pd.to_numeric(df[nh_col], errors="coerce").to_numpy(dtype=float),
+            equal_nan=True,
+        )
+    unmapped = set(uci_numeric) - set(harm_mod.NHANES_TO_UCI_MAP)
+    assert unmapped  # the handicap is real: v9 imputes these itself
+    for col in unmapped:
+        assert harmonized[col].isna().all()
+    assert set(harm_mod.NHANES_TO_UCI_MAP) == {
+        "age", "bu", "bgr", "sod", "pot", "hemo", "pcv", "wc", "rc",
+    }
+    assert len(harm_mod.UNIT_NOTES) == 9
+
+
+class _StubRegistryClient:
+    """Minimal MlflowClient stand-in recording stage transitions."""
+
+    def __init__(self, production_version: str = "9"):
+        self.calls = []
+        self._production = production_version
+
+    def get_model_version(self, name, version):
+        stage = "Production" if str(version) == self._production else "None"
+        return SimpleNamespace(current_stage=stage)
+
+    def transition_model_version_stage(
+        self, name, version, stage, archive_existing_versions=False
+    ):
+        self.calls.append((str(version), stage))
+
+
+def test_apply_challenger_stages_keeps_production():
+    client = _StubRegistryClient(production_version="9")
+    eval_mod.apply_challenger_stages(client, "corvus-ckd", "11", ["10"], "9")
+    assert ("11", "Staging") in client.calls
+    assert ("10", "Archived") in client.calls
+    # Production is never a transition target and still reads Production.
+    assert all(version != "9" for version, _stage in client.calls)
+    assert client.get_model_version("corvus-ckd", "9").current_stage == "Production"
+    with pytest.raises(ValueError):
+        eval_mod.apply_challenger_stages(client, "corvus-ckd", "9", [], "9")
+
+
+def test_adapter_not_served():
+    # The harmonization adapter is eval-only: no serving module may import it.
+    import pathlib
+
+    api_dir = pathlib.Path(eval_mod.__file__).resolve().parents[2] / "api"
+    offenders = [
+        path.name
+        for path in sorted(api_dir.glob("*.py"))
+        if "harmonize_v9" in path.read_text()
+    ]
+    assert offenders == []
