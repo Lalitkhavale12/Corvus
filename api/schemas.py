@@ -13,6 +13,7 @@ FR-4.4 deviation (locked D-02): the serving model version is pinned once
 at startup from config/env, not resolved per request — model swaps need
 restarts.
 """
+
 from __future__ import annotations
 
 from typing import Literal
@@ -51,6 +52,46 @@ class CKDRequest(BaseModel):
     appet: Literal["good", "poor"]
     pe: Literal["no", "yes"]
     ane: Literal["no", "yes"]
+
+
+class CKDRequestNative(BaseModel):
+    """21 NHANES-native fields (D-05 native schema for /v2).
+
+    The 16 numerics are ``float | None`` so blanks flow to the fitted
+    native pipeline imputers, mirroring ``CKDRequest``. The 5
+    categoricals are NHANES-coded ``Literal`` vocabularies verified
+    against the locked derived CSV (observed codes: RIAGENDR {1,2},
+    RIDRETH1 {1..5}, DMDEDUC2 {1..5,9}, DIQ010 {1,2,3}, MCQ035 {1,2,9}),
+    so bad values fail fast with an automatic 422 before inference.
+    No ``ge``/``le`` range bounds per the established raw-extremes
+    rationale.
+    """
+
+    RIDAGEYR: float | None
+    INDFMPIR: float | None
+    LBDSBUSI: float | None
+    LBDSGLSI: float | None
+    LBXSNASI: float | None
+    LBXSKSI: float | None
+    LBDSCASI: float | None
+    LBDSPHSI: float | None
+    LBXHGB: float | None
+    LBXHCT: float | None
+    LBXWBCSI: float | None
+    LBXRBCSI: float | None
+    LBXGH: float | None
+    BMXBMI: float | None
+    BPXOSY1: float | None
+    BPXODI1: float | None
+    RIAGENDR: Literal[1, 2]
+    RIDRETH1: Literal[1, 2, 3, 4, 5]
+    DMDEDUC2: Literal[1, 2, 3, 4, 5, 9]
+    DIQ010: Literal[1, 2, 3]
+    MCQ035: Literal[1, 2, 9]
+
+
+class NativeBatchItem(CKDRequestNative):
+    """Per-row v2 batch item — identical native validation, named for the batch path."""
 
 
 class PredictionResponse(BaseModel):

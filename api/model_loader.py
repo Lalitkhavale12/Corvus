@@ -9,6 +9,7 @@ equals the estimator's ``n_features_in_`` before serving.
 FR-4.4 deviation (locked D-02): pinning happens at startup, not per
 request — model swaps need restarts.
 """
+
 from __future__ import annotations
 
 import os
@@ -25,6 +26,7 @@ import pandas as pd
 from mlflow.tracking import MlflowClient
 
 from src.preprocessing.preprocess import get_column_lists
+from src.preprocessing.preprocess_nhanes import get_nhanes_column_lists
 from src.utils.config import PROJECT_ROOT, load_config
 from src.utils.logger import get_logger
 
@@ -109,6 +111,72 @@ def load_serving_artifacts(version: str):
         )
     log.info(
         f"Serving {REGISTERED_MODEL_NAME} version={version} run_id={run_id} "
+        f"features={expected}"
+    )
+    return model, pipeline, run_id, str(version)
+
+
+# Native-schema probe literals (verified against the locked derived CSV;
+# handle_unknown="ignore" means the assert checks width, never vocabulary).
+_V2_PROBE_CATEGORICALS = {
+    "RIAGENDR": 1,
+    "RIDRETH1": 1,
+    "DMDEDUC2": 1,
+    "DIQ010": 1,
+    "MCQ035": 1,
+}
+
+
+def resolve_v2_version() -> str:
+    """v2 serving version: MODEL_VERSION_V2 env wins, else api.v2_pinned_version.
+
+    Empty string when no challenger pin is configured — the /v2 routes
+    fail closed on that (503) instead of serving anything unapproved.
+    """
+    override = os.environ.get("MODEL_VERSION_V2")
+    if override:
+        return str(override)
+    cfg = load_config()
+    return str(cfg["api"].get("v2_pinned_version", ""))
+
+
+def load_v2_artifacts(version: str):
+    """Load estimator + co-logged NATIVE pipeline for a v2 registry version.
+
+    Mirrors ``load_serving_artifacts`` on the native 16+5 schema: probes a
+    native-schema frame and raises RuntimeError when the pipeline output
+    width differs from the estimator's ``n_features_in_``.
+    Returns ``(model, pipeline, run_id, version)``.
+    """
+    cfg = load_config()
+    mlflow.set_tracking_uri(resolve_tracking_uri(cfg))
+    client = MlflowClient()
+    details = client.get_model_version(REGISTERED_MODEL_NAME, version)
+    run_id = details.run_id
+    model = mlflow.sklearn.load_model(f"models:/{REGISTERED_MODEL_NAME}/{version}")
+    pipe_path = mlflow.artifacts.download_artifacts(
+        run_id=run_id, artifact_path=PIPELINE_ARTIFACT_PATH
+    )
+    pipeline = joblib.load(pipe_path)
+    numeric_cols, categorical_cols = get_nhanes_column_lists()
+    probe = pd.DataFrame(
+        [
+            {
+                **{col: 1.0 for col in numeric_cols},
+                **{col: _V2_PROBE_CATEGORICALS[col] for col in categorical_cols},
+            }
+        ]
+    )
+    width = pipeline.transform(probe).shape[1]
+    expected = int(model.n_features_in_)
+    if width != expected:
+        raise RuntimeError(
+            f"Pipeline/estimator width mismatch for {REGISTERED_MODEL_NAME} "
+            f"version {version}: pipeline yields {width} features, "
+            f"estimator expects {expected}"
+        )
+    log.info(
+        f"Serving v2 {REGISTERED_MODEL_NAME} version={version} run_id={run_id} "
         f"features={expected}"
     )
     return model, pipeline, run_id, str(version)
