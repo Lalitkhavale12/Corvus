@@ -10,6 +10,22 @@ data:
   numeric_cols: ["age", "bp", "sg", "al", "su", "bgr", "bu", "sc", "sod", "pot",
     "hemo", "pcv", "wc", "rc"]
   categorical_cols: ["rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane"]
+  # Phase 7 NHANES-native keys (additive only — never rename the UCI keys above).
+  # Merged v2 derivation per D-01, unweighted per D-02.
+  nhanes_csv: "data/nhanes/nhanes_ckd_derived.csv"
+  nhanes_target_column: "ckd"
+  nhanes_positive_label: 1
+  nhanes_numeric_cols: ["RIDAGEYR", "INDFMPIR", "LBDSBUSI", "LBDSGLSI",
+    "LBXSNASI", "LBXSKSI", "LBDSCASI", "LBDSPHSI",
+    "LBXHGB", "LBXHCT", "LBXWBCSI", "LBXRBCSI",
+    "LBXGH", "BMXBMI", "BPXOSY1", "BPXODI1"]
+  nhanes_categorical_cols: ["RIAGENDR", "RIDRETH1", "DMDEDUC2", "DIQ010", "MCQ035"]
+  nhanes_quarantine_cols: ["eGFR", "URXUMA", "URXUMS", "URXUCR", "URXCRS", "URDACT",
+    "URDUMALC", "URDUCRLC", "LBXSCR", "LBDSCRSI", "ACR"]
+  nhanes_holdout_size: 0.2
+  nhanes_random_state: 42
+  nhanes_cv_folds: 5
+  nhanes_bootstrap_reps: 2000
 
 validation:
   min_rows: 300
@@ -35,10 +51,14 @@ logging:
 mlflow:
   tracking_uri: "mlruns"
   experiment_name: "corvus-ckd"
+  nhanes_experiment_name: "corvus-ckd-nhanes"
 
 api:
   model_name: "corvus-ckd"
   pinned_version: "9"
+  # v2 (NHANES-native challenger) serving slot; empty until the human gate
+  # promotes a challenger version (D-04). v1 pin above is untouched.
+  v2_pinned_version: ""
   # tracking_uri honors MLFLOW_TRACKING_URI env with mlruns fallback (see
   # scripts/promote_production.py and api/model_loader.py); static default here.
   tracking_uri: "mlruns"
