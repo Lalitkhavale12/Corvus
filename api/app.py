@@ -13,6 +13,7 @@ unexpected inference errors log the type name server-side and return a
 500 JSON with no traceback (T-03-04); DATABASE_URL values are never
 logged.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -28,11 +29,18 @@ from api.schemas import (
     BatchPredictionItem,
     BatchPredictionResponse,
     CKDRequest,
+    CKDRequestNative,
     HealthResponse,
     ModelInfoResponse,
+    NativeBatchItem,
     PredictionResponse,
 )
-from src.preprocessing.preprocess import LINEAGE_ID_COL, LINEAGE_ROW_COL, get_column_lists
+from src.preprocessing.preprocess import (
+    LINEAGE_ID_COL,
+    LINEAGE_ROW_COL,
+    get_column_lists,
+)
+from src.preprocessing.preprocess_nhanes import get_nhanes_column_lists
 from src.utils.config import load_config
 from src.utils.logger import get_logger
 
@@ -42,6 +50,13 @@ _NUMERIC_COLS, _CATEGORICAL_COLS = get_column_lists()
 COLUMN_ORDER = _NUMERIC_COLS + _CATEGORICAL_COLS
 TARGET_COL = load_config()["data"]["target_column"]
 DROP_COLS = {TARGET_COL, LINEAGE_ROW_COL, LINEAGE_ID_COL}
+
+# v2 (NHANES-native) column order plus drop set: native target column plus
+# the shared lineage constants, mirroring the v1 DROP pattern (D-07).
+_NATIVE_NUMERIC_COLS, _NATIVE_CATEGORICAL_COLS = get_nhanes_column_lists()
+COLUMN_ORDER_V2 = _NATIVE_NUMERIC_COLS + _NATIVE_CATEGORICAL_COLS
+NATIVE_TARGET_COL = load_config()["data"]["nhanes_target_column"]
+DROP_COLS_V2 = {NATIVE_TARGET_COL, LINEAGE_ROW_COL, LINEAGE_ID_COL}
 
 PINNED_RESOLUTION = "pinned-at-startup"
 
@@ -59,6 +74,26 @@ async def lifespan(app: FastAPI):
     app.state.model = model
     app.state.pipeline = pipeline
     app.state.run_id = run_id
+    v2_version = model_loader.resolve_v2_version()
+    if v2_version:
+        v2_model, v2_pipeline, v2_run_id, v2_version = (
+            model_loader.load_v2_artifacts(v2_version)
+        )
+        app.state.v2_model_version = v2_version
+        app.state.v2_model = v2_model
+        app.state.v2_pipeline = v2_pipeline
+        app.state.v2_run_id = v2_run_id
+    else:
+        # No approved challenger pin: v2 slots stay empty and every /v2
+        # route fails closed via _require_v2 (T-07-14). v1 serves on.
+        app.state.v2_model_version = ""
+        app.state.v2_model = None
+        app.state.v2_pipeline = None
+        app.state.v2_run_id = ""
+        log.warning(
+            "api.v2_pinned_version unset — /v2 routes will 503 until "
+            "an approved challenger version is pinned"
+        )
     engine = db.get_engine()
     if engine is not None:
         db.Session.configure(bind=engine)
@@ -75,6 +110,16 @@ def _require_log_store() -> None:
         raise HTTPException(
             status_code=503,
             detail="prediction log unavailable: set DATABASE_URL to the Postgres log store",
+        )
+
+
+def _require_v2() -> None:
+    """Fail closed when no approved challenger pin is configured (T-07-14)."""
+    if not getattr(app.state, "v2_model_version", ""):
+        raise HTTPException(
+            status_code=503,
+            detail="v2 model unavailable: set api.v2_pinned_version "
+            "to an approved challenger version",
         )
 
 
@@ -210,3 +255,124 @@ def model_info():
 async def _no_traceback_500(request, exc):  # noqa: ARG001
     """500 JSON shape without a traceback (T-03-04)."""
     return JSONResponse(status_code=500, content={"detail": "internal error"})
+
+
+def _frame_from_native_request(body: CKDRequestNative) -> pd.DataFrame:
+    """Single-row frame in native column order for the v2 pipeline."""
+    return pd.DataFrame([body.model_dump()])[COLUMN_ORDER_V2]
+
+
+def _predict_frame_v2(frame: pd.DataFrame) -> tuple[list[int], list[float]]:
+    """v2 pipeline.transform then predict/proba; 500 JSON on surprise failures."""
+    try:
+        features = app.state.v2_pipeline.transform(frame)
+        preds = app.state.v2_model.predict(features)
+        probas = app.state.v2_model.predict_proba(features)
+    except Exception as exc:
+        log.warning(f"V2 inference failed: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=500, detail="inference failed")
+    return [int(p) for p in preds], [float(p[1]) for p in probas]
+
+
+def _log_predictions_v2(rows: list[dict], preds: list[int], probas: list[float]) -> None:
+    """One PredictionLogV2 row per prediction, a single commit (all-or-nothing)."""
+    session = db.Session()
+    try:
+        for row, pred, proba in zip(rows, preds, probas):
+            session.add(
+                db.PredictionLogV2(
+                    **row,
+                    prediction=pred,
+                    probability=proba,
+                    model_version=app.state.v2_model_version,
+                    created_at=datetime.datetime.now(),
+                )
+            )
+        session.commit()
+    except Exception as exc:
+        session.rollback()
+        log.warning(f"V2 prediction-log write failed: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=500, detail="prediction log unavailable")
+    finally:
+        session.close()
+
+
+@app.post("/v2/predict", response_model=PredictionResponse)
+def predict_v2(body: CKDRequestNative):
+    """Validate (422) → transform → predict → log to predictions_v2 → versioned JSON."""
+    _require_v2()
+    _require_log_store()
+    frame = _frame_from_native_request(body)
+    preds, probas = _predict_frame_v2(frame)
+    _log_predictions_v2([body.model_dump()], preds, probas)
+    return PredictionResponse(
+        prediction=preds[0],
+        probability=probas[0],
+        model_version=app.state.v2_model_version,
+    )
+
+
+@app.post("/v2/batch_predict", response_model=BatchPredictionResponse)
+def batch_predict_v2(file: UploadFile):
+    """Native-schema CSV upload; all-or-nothing with 1-indexed offender rows.
+
+    Mirrors the v1 batch shape: size/row caps (413) before full parse,
+    lineage plus native target dropped via constants, unexpected columns
+    warn-ignored, missing columns 422, per-row NativeBatchItem validation,
+    single commit to predictions_v2 only after all rows predict.
+    """
+    _require_v2()
+    _require_log_store()
+    raw = file.file.read()
+    if len(raw) > MAX_BATCH_BYTES:
+        raise HTTPException(status_code=413, detail="batch upload exceeds size limit")
+    try:
+        text = raw.decode("utf-8")
+    except Exception as exc:
+        log.warning(f"V2 batch CSV decode failed: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=422, detail="batch CSV could not be parsed")
+    n_data_rows = len(text.strip().splitlines()) - 1
+    if n_data_rows > MAX_BATCH_ROWS:
+        raise HTTPException(status_code=413, detail="batch upload exceeds row limit")
+    try:
+        frame = pd.read_csv(io.StringIO(text))
+    except Exception as exc:
+        log.warning(f"V2 batch CSV parse failed: {type(exc).__name__}: {exc}")
+        raise HTTPException(status_code=422, detail="batch CSV could not be parsed")
+    frame = frame.drop(columns=[c for c in DROP_COLS_V2 if c in frame.columns])
+    unexpected = set(frame.columns) - set(COLUMN_ORDER_V2)
+    if unexpected:
+        log.warning(f"Ignoring unexpected v2 batch columns: {sorted(unexpected)}")
+    missing = [c for c in COLUMN_ORDER_V2 if c not in frame.columns]
+    if missing:
+        raise HTTPException(status_code=422, detail=f"missing columns: {missing}")
+    rows: list[dict] = []
+    for i, record in enumerate(frame[COLUMN_ORDER_V2].to_dict(orient="records"), start=1):
+        clean = {k: (None if pd.isna(v) else v) for k, v in record.items()}
+        try:
+            rows.append(NativeBatchItem(**clean).model_dump())
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail=f"row {i}: {exc}")
+    batch = pd.DataFrame(rows)[COLUMN_ORDER_V2]
+    preds, probas = _predict_frame_v2(batch)
+    _log_predictions_v2(rows, preds, probas)
+    return BatchPredictionResponse(
+        predictions=[
+            BatchPredictionItem(row=i, prediction=p, probability=q)
+            for i, (p, q) in enumerate(zip(preds, probas), start=1)
+        ],
+        count=len(preds),
+        model_version=app.state.v2_model_version,
+    )
+
+
+@app.get("/v2/model_info", response_model=ModelInfoResponse)
+def model_info_v2():
+    """v2 pinned model identity; 503 while no challenger pin is configured."""
+    _require_v2()
+    return ModelInfoResponse(
+        model_name=model_loader.REGISTERED_MODEL_NAME,
+        model_version=app.state.v2_model_version,
+        run_id=app.state.v2_run_id,
+        resolution=PINNED_RESOLUTION,
+    )

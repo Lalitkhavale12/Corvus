@@ -6,6 +6,7 @@ No SQLite fallback per D-03 — when ``DATABASE_URL`` is unset the engine
 is ``None``, table creation warns, and ``/predict`` fails closed with
 503 rather than serving without a log.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -73,9 +74,56 @@ class PredictionLog(Base):
 Session = sessionmaker()
 
 
+class PredictionLogV2(Base):
+    """Full v2 prediction record: 21 native fields + outcome + version.
+
+    Separate ``predictions_v2`` table so native rows never touch the v1
+    ``predictions`` table (T-07-11); ``PredictionLog`` stays byte-identical
+    and ``Base.metadata.create_all`` picks this table up with no
+    ``create_tables`` change.
+    """
+
+    __tablename__ = "predictions_v2"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    RIDAGEYR: Mapped[float | None] = mapped_column(Float, nullable=True)
+    INDFMPIR: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBDSBUSI: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBDSGLSI: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBXSNASI: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBXSKSI: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBDSCASI: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBDSPHSI: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBXHGB: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBXHCT: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBXWBCSI: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBXRBCSI: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBXGH: Mapped[float | None] = mapped_column(Float, nullable=True)
+    BMXBMI: Mapped[float | None] = mapped_column(Float, nullable=True)
+    BPXOSY1: Mapped[float | None] = mapped_column(Float, nullable=True)
+    BPXODI1: Mapped[float | None] = mapped_column(Float, nullable=True)
+    RIAGENDR: Mapped[str] = mapped_column(String(16))
+    RIDRETH1: Mapped[str] = mapped_column(String(16))
+    DMDEDUC2: Mapped[str] = mapped_column(String(16))
+    DIQ010: Mapped[str] = mapped_column(String(16))
+    MCQ035: Mapped[str] = mapped_column(String(16))
+    prediction: Mapped[int] = mapped_column(Integer)
+    probability: Mapped[float] = mapped_column(Float)
+    model_version: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        default=datetime.datetime.now,
+    )
+
+
 def get_database_url() -> str:
     """DATABASE_URL env wins; config db.database_url is the static fallback."""
-    return os.environ.get("DATABASE_URL") or load_config()["db"].get("database_url", "") or ""
+    return (
+        os.environ.get("DATABASE_URL")
+        or load_config()["db"].get("database_url", "")
+        or ""
+    )
 
 
 def get_engine():
