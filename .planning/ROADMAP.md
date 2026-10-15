@@ -151,7 +151,7 @@
 
 ## Phase 7: NHANES Native Retrain
 
-**Status**: 🔄 In Progress (07-01 complete 2026-10-15)
+**Status**: 🔄 In Progress (07-01 complete 2026-10-15; 07-02 tasks 1-2 complete, BLOCKING-HUMAN promotion gate open)
 **Delivers**: NHANES-native pipeline + 9 configs trained on 5,343 derived rows, CV + CIs, challenger vs v9 champion, winner promoted, API serving new schema
 **Patent impact**: None new (exercises Claim 2 + Claim 4 on a second cohort)
 **Depends on**: Phase 3 (registry + serving loop); data track (`data/nhanes/nhanes_ckd_derived.csv`, `NHANES_PROTOCOL.md`)
@@ -164,13 +164,13 @@
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 07-02-PLAN.md — 9-config CV expansion plus paired harmonized comparison plus Staging plus human promotion gate (wave 2, blocked on 07-01)
+- [ ] 07-02-PLAN.md — 9-config CV expansion plus paired harmonized comparison plus Staging plus human promotion gate (wave 2; tasks 1-2 complete 2026-10-15: GB winner holdout 0.8265, v11 Staging, paired qualifies=True, suite 59 passed; GATE OPEN — approve v11 or reject)
 - [ ] 07-03-PLAN.md — Native schemas plus v2 loader slot plus /v2 routes plus v2 log table plus v2 tests (wave 2, blocked on 07-01)
 
 ### Tasks
 
 - [ ] Build NHANES-native training set (~14 mapped + demographic/comorbidity features; quarantine held; no 24-field forcing)
-- [ ] Fit new pipeline on NHANES train split; train 9 configs with stratified 5-fold CV + confidence intervals
-- [ ] Register challenger versions; promote iff beats v9 champion on the locked rule
+- [x] Fit new pipeline on NHANES train split; train 9 configs with stratified 5-fold CV + confidence intervals
+- [x] Register challenger versions; promote iff beats v9 champion on the locked rule (v11 Staging, qualifies=True; Production promotion awaits human gate)
 - [ ] Evolve API schema to serve the NHANES-native model (versioned; v9 keeps serving until promotion)
 - [ ] Write training + serving tests for the new schema
