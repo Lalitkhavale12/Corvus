@@ -17,8 +17,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 import api.db as db_mod
+from api import model_loader
 from api.app import COLUMN_ORDER, COLUMN_ORDER_V2, MAX_BATCH_BYTES, MAX_BATCH_ROWS, app
 from api.db import PredictionLog, PredictionLogV2
+from src.training.train_nhanes import NATIVE_PIPELINE_FILENAME
 
 NATIVE_NUMERIC = COLUMN_ORDER_V2[:16]
 NATIVE_CATEGORICAL = COLUMN_ORDER_V2[16:]
@@ -278,3 +280,12 @@ def test_serving_never_imports_harmonization_adapter():
         if "harmonize_v9" in p.read_text(encoding="utf-8")
     ]
     assert offenders == []
+
+
+def test_v2_pipeline_artifact_path_tracks_training():
+    # The v2 loader must read the native pipeline filename the training
+    # run actually logged (distinct from v1 by 07-01 design).
+    assert model_loader.V2_PIPELINE_ARTIFACT_PATH == (
+        f"preprocessing/{NATIVE_PIPELINE_FILENAME}"
+    )
+    assert model_loader.V2_PIPELINE_ARTIFACT_PATH != model_loader.PIPELINE_ARTIFACT_PATH

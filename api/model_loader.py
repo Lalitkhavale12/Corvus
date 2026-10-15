@@ -34,6 +34,9 @@ log = get_logger()
 
 REGISTERED_MODEL_NAME = "corvus-ckd"
 PIPELINE_ARTIFACT_PATH = "preprocessing/preprocessing_pipeline.joblib"
+# Native pipeline filename is distinct from v1 by 07-01 design; this must
+# track src.training.train_nhanes.NATIVE_PIPELINE_FILENAME (pinned by test).
+V2_PIPELINE_ARTIFACT_PATH = "preprocessing/preprocessing_pipeline_nhanes.joblib"
 
 # Literal-valid probe values (handle_unknown="ignore" in the pipeline, so
 # the assertion only checks width, never vocabulary membership).
@@ -155,7 +158,7 @@ def load_v2_artifacts(version: str):
     run_id = details.run_id
     model = mlflow.sklearn.load_model(f"models:/{REGISTERED_MODEL_NAME}/{version}")
     pipe_path = mlflow.artifacts.download_artifacts(
-        run_id=run_id, artifact_path=PIPELINE_ARTIFACT_PATH
+        run_id=run_id, artifact_path=V2_PIPELINE_ARTIFACT_PATH
     )
     pipeline = joblib.load(pipe_path)
     numeric_cols, categorical_cols = get_nhanes_column_lists()
