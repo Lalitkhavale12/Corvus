@@ -3,6 +3,7 @@
 Provides a 40-row synthetic CKD-shaped fixture plus a tmp MLflow
 tracking-URI fixture. Never touches real data/ or real mlruns/.
 """
+
 import csv
 import io
 
@@ -11,8 +12,10 @@ import pandas as pd
 import pytest
 
 from src.preprocessing.preprocess import get_column_lists
+from src.preprocessing.preprocess_nhanes import QUARANTINE_11, get_nhanes_column_lists
 
 NUMERIC_COLS, CATEGORICAL_COLS = get_column_lists()
+NHANES_NUMERIC_COLS, NHANES_CATEGORICAL_COLS = get_nhanes_column_lists()
 
 
 @pytest.fixture
@@ -21,9 +24,7 @@ def synthetic_ckd_df():
     data = {col: [float(i % 5) for i in range(n)] for col in NUMERIC_COLS}
     for col in CATEGORICAL_COLS:
         data[col] = ["yes" if i % 2 == 0 else "no" for i in range(n)]
-    data["classification"] = [
-        "ckd" if i % 2 == 0 else "notckd" for i in range(n)
-    ]
+    data["classification"] = ["ckd" if i % 2 == 0 else "notckd" for i in range(n)]
     df = pd.DataFrame(data)
     df.loc[0, NUMERIC_COLS[0]] = None
     df.loc[1, CATEGORICAL_COLS[0]] = None
@@ -104,3 +105,23 @@ def bad_row_batch_csv(synthetic_ckd_request):
     rows = [dict(synthetic_ckd_request) for _ in range(5)]
     rows[2]["rbc"] = "ripe"
     return _batch_csv_from_rows(rows)
+
+
+# Phase 7 Wave 0 fixture: NHANES-native synthetic frame for
+# tests/test_nhanes_training.py (07-01). 60 rows over the 16+5 native
+# columns plus a 0/1 ckd label at ~17 percent positive (10/60) plus all
+# 11 quarantine columns with dummy values so the abort path is testable.
+# Purely synthetic with tmp isolation; never reads the real derived CSV.
+@pytest.fixture
+def synthetic_nhanes_df():
+    n = 60
+    data = {col: [float(i % 5) for i in range(n)] for col in NHANES_NUMERIC_COLS}
+    for col in NHANES_CATEGORICAL_COLS:
+        data[col] = [f"{col}_a" if i % 2 == 0 else f"{col}_b" for i in range(n)]
+    data["ckd"] = [1 if i % 6 == 0 else 0 for i in range(n)]
+    for col in QUARANTINE_11:
+        data[col] = [0.0 for _ in range(n)]
+    df = pd.DataFrame(data)
+    df.loc[0, NHANES_NUMERIC_COLS[0]] = None
+    df.loc[1, NHANES_CATEGORICAL_COLS[0]] = None
+    return df
