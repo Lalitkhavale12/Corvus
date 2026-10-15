@@ -146,3 +146,31 @@
 - [ ] End-to-end integration testing
 - [ ] Documentation pass, architecture diagram, demo script
 - [ ] Final README update
+
+---
+
+## Phase 7: NHANES Native Retrain
+
+**Status**: ⬜ Not Started
+**Delivers**: NHANES-native pipeline + 9 configs trained on 5,343 derived rows, CV + CIs, challenger vs v9 champion, winner promoted, API serving new schema
+**Patent impact**: None new (exercises Claim 2 + Claim 4 on a second cohort)
+**Depends on**: Phase 3 (registry + serving loop); data track (`data/nhanes/nhanes_ckd_derived.csv`, `NHANES_PROTOCOL.md`)
+**Note**: Phase 5 drift design names UCI-857 as the incoming batch — disqualified 2026-10-10; Phase 5 needs replanning against the Postgres prediction log when reached.
+
+**Plans:** 3 plans
+**Wave 1**
+
+- [ ] 07-01-PLAN.md — Tracer: native pipeline plus quarantine gate plus LR Claim-2 run plus Wave 0 training tests (wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 07-02-PLAN.md — 9-config CV expansion plus paired harmonized comparison plus Staging plus human promotion gate (wave 2, blocked on 07-01)
+- [ ] 07-03-PLAN.md — Native schemas plus v2 loader slot plus /v2 routes plus v2 log table plus v2 tests (wave 2, blocked on 07-01)
+
+### Tasks
+
+- [ ] Build NHANES-native training set (~14 mapped + demographic/comorbidity features; quarantine held; no 24-field forcing)
+- [ ] Fit new pipeline on NHANES train split; train 9 configs with stratified 5-fold CV + confidence intervals
+- [ ] Register challenger versions; promote iff beats v9 champion on the locked rule
+- [ ] Evolve API schema to serve the NHANES-native model (versioned; v9 keeps serving until promotion)
+- [ ] Write training + serving tests for the new schema
