@@ -9,16 +9,16 @@ requires:
   - phase: 07-nhanes-native-retrain plan 01
     provides: Native pipeline builder, quarantine gate, locked holdout split, tracer LR run, synthetic fixture
 provides:
-  - 9-config native sweep with dev-only CV plus bootstrap CIs (winner gradient-boosting, v11 Staging)
+  - 9-config native sweep with dev-only CV plus bootstrap CIs (winner gradient-boosting, v11 Production)
   - Eval-only v9 harmonization adapter plus paired same-rows same-labels comparison (qualifies=True)
-  - Human-gate promotion script (created, NOT executed)
+  - Human-gate promotion EXECUTED on explicit approval: v11 Production, v9 Archived, api.v2_pinned_version="11" for 07-03
 affects: [07-03 v2 serving, Production promotion decision]
 
 # Actuals (#2632) — pairs with the plan's `estimate` to calibrate future estimates.
 actuals:
-  tokens: 10000
-  tasks: 2
-  commits: 3
+  tokens: 14000
+  tasks: 3
+  commits: 4
 
 # Tech tracking
 tech-stack:
@@ -39,14 +39,14 @@ key-decisions:
   - "Winner run persists holdout_predictions.csv (row_id/y_true/y_proba) so evaluation proves same-rows same-labels without refitting"
   - "v9 harmonized AUC 0.5479 carries the documented handicap (10 mode-filled categoricals, 5 median-imputed numerics) — the strict-greater rule still governs"
   - "Tracer v10 parked None->Archived as a superseded challenger; v9 Production untouched"
-  - "Promotion script created but NOT executed — D-04 gate owns the Production boundary"
+  - "APPROVED v11: explicit human approval executed via promote_challenger.py --version 11 (PROMOTED audit line); v11 Production, v9 Archived with artifacts intact, api.v2_pinned_version=\"11\" handed to 07-03"
 
 patterns-established:
   - "run_cv_native fits a fresh native pipeline per fold-train on dev only; the holdout is referenced only in run_experiment_native"
   - "paired_bootstrap_diff resamples holdout indices once per replicate and scores both models per resample — paired by construction"
   - "apply_challenger_stages refuses any transition naming the Production version and asserts Production after"
 
-requirements-completed: [FR-2.1, FR-2.2, FR-2.3, FR-2.4, FR-2.5, FR-3.1, FR-3.2]
+requirements-completed: [FR-2.1, FR-2.2, FR-2.3, FR-2.4, FR-2.5, FR-3.1, FR-3.2, FR-3.3]
 
 # Coverage metadata (#1602)
 coverage:
@@ -84,39 +84,52 @@ coverage:
         status: pass
     human_judgment: false
   - id: D4
-    description: "Human gate decision: approve (promote named version) or reject (challenger stays Staging)"
-    verification: []
-    human_judgment: true
-    rationale: "D-04 forbids auto-promote ever — only an explicit human approve crosses the Production boundary"
+    description: "Human gate APPROVED v11 and the approved Production promotion executed (v11 Production, v9 Archived, pin 11 for 07-03)"
+    requirement: "FR-3.3"
+    verification:
+      - kind: other
+        ref: "PROMOTED corvus-ckd version=11 stage=Production audit line, 2026-10-15"
+        status: pass
+      - kind: other
+        ref: "registry snapshot post-promotion 2026-10-15: v11 Production (run 5954f069), v9 Archived (run 10ac3e5e, artifacts intact), v1-v8/v10 untouched"
+        status: pass
+      - kind: unit
+        ref: "full suite post-promotion: 59 passed, 0 failed"
+        status: pass
+    human_judgment: false
+    rationale: "D-04 approval itself was an explicit human decision (APPROVE v11, recorded in the continuation dispatch); execution and post-state are programmatically verified above"
 
 # Metrics
-duration: 20min
+duration: 20min + gate execution 45min
 completed: 2026-10-15
-status: halted
+status: complete
 ---
 
-# Phase 07 Plan 02: 9-Config Sweep plus Paired Comparison Summary
+# Phase 07 Plan 02: 9-Config Sweep plus Paired Comparison plus Approved Promotion Summary
 
-**Gradient-boosting wins the native 9-config CV sweep (holdout ROC-AUC 0.8265) and beats harmonized v9 on the paired locked holdout (0.8265 vs 0.5479, diff CI [0.2239, 0.3349]); challenger v11 staged, v9 Production intact — promotion awaits the human gate**
+**Gradient-boosting wins the native 9-config CV sweep (holdout ROC-AUC 0.8265) and beats harmonized v9 on the paired locked holdout (0.8265 vs 0.5479, diff CI [0.2239, 0.3349]); human gate APPROVED v11 — challenger promoted to Production, v9 Archived intact, api.v2_pinned_version="11" handed to 07-03**
 
-> **GATE STATUS: PENDING.** Tasks 1-2 are complete and committed. Task 3 (blocking-human) stops here:
-> `scripts/promote_challenger.py` exists but has NEVER run. No Production transition exists in the
-> registry audit trail. Awaiting explicit APPROVE (with version `11`) or REJECT.
+> **GATE STATUS: APPROVED + EXECUTED 2026-10-15.** The human approved Production promotion of
+> challenger version 11 (gradient-boosting, run 5954f069, holdout ROC-AUC 0.8265).
+> `scripts/promote_challenger.py --version 11` ran and printed
+> `PROMOTED corvus-ckd version=11 stage=Production`. Post-state verified: v11 Production,
+> v9 Archived (artifacts intact, NOT deleted), all 11 versions present. Full suite green post-promotion.
 
 ## Performance
 
-- **Duration:** ~20 min
+- **Duration:** ~20 min (tasks 1-2) + ~45 min gate-execution continuation (registry probes, promotion, full suite re-run, docs)
 - **Started:** 2026-10-15T07:47:46Z
-- **Completed:** 2026-10-15T08:05:03Z
-- **Tasks:** 2 of 3 (3rd is the blocking-human gate, awaiting decision)
-- **Files modified:** 5
+- **Completed:** 2026-10-15T08:05:03Z (tasks 1-2); gate executed 2026-10-15T15:07Z (~20:37 IST)
+- **Tasks:** 3 of 3 (gate approved and executed)
+- **Files modified:** 5 (code) + 3 (docs: SUMMARY, STATE, ROADMAP)
 
 ## Accomplishments
 
 - Live 9-config sweep on the 5,343-row derived cohort: dev-only stratified 5-fold CV per config (gradient-boosting CV-mean 0.8203 ± 0.0135 wins; decision-tree 0.6310 trails; MLP ConvergenceWarnings logged, never raised), winner refit on full dev, single holdout scoring (roc_auc 0.8265, CI [0.7910, 0.8572]), Claim-2 run registered as `corvus-ckd` v11 with CV mean/SD, CI bounds, and `holdout_predictions.csv` artifact
 - Paired comparison on the identical locked holdout rows against identical derived labels: challenger 0.8265 vs v9-harmonized 0.5479 (documented handicap: 10 mode-filled categoricals + 5 median-imputed numerics), paired-bootstrap difference CI [0.2239, 0.3349], strict-greater `qualifies=True`
-- Registry now: v9 Production (run 10ac3e5e, untouched), v10 Archived (superseded tracer), v11 Staging (challenger, run 5954f069) — disclosure string attached to every reported metric
-- Full suite green: 59 passed (50 pre-plan baseline + 9 new), 0 failed
+- Registry now: v11 Production (run 5954f069, promoted on approval), v9 Archived (run 10ac3e5e, artifacts intact — transition only, never deleted), v10 Archived (superseded tracer), v1-v8 Archived untouched — disclosure string attached to every reported metric
+- Gate execution verified end to end: pre-state snapshot (v11 Staging / v9 Production), PROMOTED audit line, post-state snapshot (v11 Production / v9 Archived / nothing deleted), full suite re-run green post-promotion
+- Full suite green: 59 passed (50 pre-plan baseline + 9 new), 0 failed — before AND after promotion
 
 ## Task Commits
 
@@ -124,7 +137,9 @@ Each task was committed atomically:
 
 1. **Task 1: 9-config sweep plus stratified CV plus bootstrap CIs** - `73827e1` (feat)
 2. **Task 2: Harmonization adapter plus paired comparison plus challenger staging** - `a40dbe1` (feat)
-3. **Task 3 (gate prep): challenger promotion script, created unrun** - `65f6663` (feat) — gate decision still pending
+3. **Task 3 (gate prep): challenger promotion script, created unrun** - `65f6663` (feat)
+4. **Task 3 (gate execution, APPROVED): v11 promoted to Production** — registry-only transition, no file diff by design (`mlruns/` is gitignored; the audit trail is the `PROMOTED corvus-ckd version=11 stage=Production` stdout line plus the pre/post registry snapshots recorded here)
+5. **Docs: gate-executed summary + state + roadmap** - recorded in the plan metadata commit below
 
 ## Files Created/Modified
 
@@ -140,6 +155,7 @@ Each task was committed atomically:
 - `holdout_predictions.csv` (row_id/y_true/y_proba) persisted in the winner run so evaluation enforces same-rows/same-labels programmatically (row-id set equality + label equality) with zero native refitting
 - Keeping v9 on a failed gate would have been an acceptable evidence outcome; the gate passed on merit (difference CI far from zero), so the question before the human is promotion, not validity
 - Tracer v10 moved to Archived as a superseded challenger per the plan's staging rule — it was never a candidate, only lineage
+- APPROVED v11 executed 2026-10-15: pre-state verified (v11 Staging / v9 Production / v10 Archived), `promote_challenger.py --version 11` printed the PROMOTED line with `archive_existing_versions=true`, post-state verified (v11 Production / v9 Archived with run 10ac3e5e artifacts intact / all 11 versions present / nothing deleted); v1 serving code and v9 artifacts never touched
 - Commits stay on `main` per the sequential-orchestrator instruction and the 07-01 precedent (all phase commits live on `main`; no worktree in use)
 
 ## Deviations from Plan
@@ -179,14 +195,23 @@ None — no new network endpoints, auth paths, file-access patterns, or schema c
 
 ## Known Stubs
 
-None — no hardcoded empty values, placeholder text, or unwired components in the files this plan created or modified. `api.v2_pinned_version` remains `""` by design until the gate approves (07-03 consumes the pin value).
+None — no hardcoded empty values, placeholder text, or unwired components in the files this plan created or modified. `api.v2_pinned_version` in `config.yaml` remains `""` until 07-03 flips it; the value 07-03 MUST pin is recorded here: **`"11"`** (gradient-boosting, run 5954f069, Production since 2026-10-15).
 
 ## Self-Check: PASSED
 
 - FOUND: src/training/train_nhanes.py (9 configs), src/training/harmonize_v9.py, src/evaluation/evaluate_nhanes.py, scripts/promote_challenger.py, tests/test_nhanes_training.py (14 tests)
 - FOUND: 73827e1, a40dbe1, 65f6663 in git log
-- Live: winner run 5954f069 (FINISHED) under corvus-ckd-nhanes, holdout_roc_auc 0.8265; registry v9 Production / v10 Archived / v11 Staging confirmed by snapshot
+- Live: winner run 5954f069 (FINISHED) under corvus-ckd-nhanes, holdout_roc_auc 0.8265; registry v9 Production / v10 Archived / v11 Staging confirmed by snapshot (pre-promotion)
 - Full suite: 59 passed, 0 failed
+
+## Gate Execution Self-Check: PASSED (2026-10-15)
+
+- PRE-STATE: v11 Staging (run 5954f069), v9 Production (run 10ac3e5e), v10 Archived — matches the halted SUMMARY exactly
+- PROMOTED line: `PROMOTED corvus-ckd version=11 stage=Production` (only stdout; the FutureWarning about stage deprecation is upstream MLflow notice, not a failure)
+- POST-STATE: v11 Production (run 5954f069), v9 Archived (run 10ac3e5e — still present, artifacts intact), v1-v8 + v10 Archived untouched — 11 versions total, zero deletions
+- v1 serving code (`api/*`, `src/training/train.py`, `src/training/train_mlp.py`) never staged or committed by this run; pre-existing working-tree modifications left alone
+- Full suite post-promotion: 59 passed, 0 failed
+- Pin for 07-03: `api.v2_pinned_version = "11"` recorded here and in STATE.md
 
 ## User Setup Required
 
@@ -194,12 +219,12 @@ None - no external service configuration required.
 
 ## Next Phase Readiness
 
-- **Blocked on the human gate:** APPROVE → continuation runs `scripts/promote_challenger.py --version 11`, records the new Production version + the `api.v2_pinned_version` value 07-03 must serve. REJECT → registry stays as-is (challenger in Staging), 07-03 plans against v9
+- **Gate resolved — 07-03 UNBLOCKED:** serve `api.v2_pinned_version = "11"` (gradient-boosting, run 5954f069, Production). v1 routes keep serving v9's frozen artifacts until the 07-03 hard cutover (D-06); the v9 model files still exist under Archived run 10ac3e5e
 - Watch item for 07-03: v9's harmonized 0.5479 is a handicap artifact of mode/median filling, NOT a claim about v9's UCI performance — never quote it outside the paired-protocol framing
-- No blockers besides the gate itself
+- No blockers
 
 ---
 
 *Phase: 07-nhanes-native-retrain*
 *Completed: 2026-10-15*
-*Gate: BLOCKING-HUMAN — promotion decision pending*
+*Gate: APPROVED + EXECUTED — v11 Production, pin "11" for 07-03*
