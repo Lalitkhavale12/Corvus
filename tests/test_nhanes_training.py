@@ -104,9 +104,86 @@ def test_holdout_disjoint(synthetic_nhanes_df):
 
 
 def test_lr_estimator_seeded():
-    assert set(nhanes_mod.NATIVE_ESTIMATORS) == {"logistic-regression"}
+    assert set(nhanes_mod.NATIVE_ESTIMATORS) == {
+        "logistic-regression",
+        "decision-tree",
+        "random-forest",
+        "gradient-boosting",
+        "xgboost",
+        "lightgbm",
+        "mlp-sigmoid",
+        "mlp-tanh",
+        "mlp-relu",
+    }
     est = nhanes_mod.build_native_estimator("logistic-regression")
     assert type(est).__name__ == "LogisticRegression"
     assert est.get_params()["random_state"] == 42
+    # Every seeded estimator carries random_state 42; lightgbm stays silent.
+    for name in nhanes_mod.NATIVE_ESTIMATORS:
+        params = nhanes_mod.build_native_estimator(name).get_params()
+        assert params["random_state"] == 42, name
+    assert nhanes_mod.build_native_estimator("lightgbm").get_params()["verbosity"] == -1
+    # MLP configs reuse the train_mlp activation map with the locked shape.
+    from src.training.train_mlp import ACTIVATIONS, MAX_ITER
+
+    for display in ("sigmoid", "tanh", "relu"):
+        mlp = nhanes_mod.build_native_estimator(f"mlp-{display}")
+        assert type(mlp).__name__ == "MLPClassifier"
+        assert mlp.get_params()["activation"] == ACTIVATIONS[display]
+        assert mlp.get_params()["hidden_layer_sizes"] == (50,)
+        assert mlp.get_params()["max_iter"] == MAX_ITER
     with pytest.raises(KeyError):
         nhanes_mod.build_native_estimator("no-such-config")
+
+
+def _cv_means(synthetic_nhanes_df):
+    """CV mean-AUC strings for every config on the synthetic fixture."""
+    df = _native_frame(synthetic_nhanes_df)
+    numeric_cols, categorical_cols = get_nhanes_column_lists()
+    X = df[numeric_cols + categorical_cols]
+    y = df["ckd"].astype(int)
+    X_dev, _, y_dev, _ = locked_holdout_split(X, y)
+    means = {}
+    for name in nhanes_mod.NATIVE_ESTIMATORS:
+        cv = nhanes_mod.run_cv_native(name, X_dev, y_dev, numeric_cols, categorical_cols)
+        assert len(cv["fold_aucs"]) == 5
+        means[name] = f"{cv['mean_auc']:.6f}"
+    return means
+
+
+def test_cv_determinism(synthetic_nhanes_df):
+    # Two consecutive CV sweeps at seed 42 must produce identical means.
+    assert _cv_means(synthetic_nhanes_df) == _cv_means(synthetic_nhanes_df)
+
+
+def test_bootstrap_ci_determinism_and_bounds(synthetic_nhanes_df):
+    import pathlib
+
+    df = _native_frame(synthetic_nhanes_df)
+    numeric_cols, categorical_cols = get_nhanes_column_lists()
+    X = df[numeric_cols + categorical_cols]
+    y = df["ckd"].astype(int)
+    pipe = build_native_pipeline(numeric_cols, categorical_cols)
+    pipe.fit(X)
+    est = nhanes_mod.build_native_estimator("logistic-regression")
+    est.fit(pipe.transform(X), y)
+    proba = est.predict_proba(pipe.transform(X))[:, 1]
+    lo, hi = nhanes_mod.bootstrap_auc_ci(y, proba, n_reps=50, seed=42)
+    lo2, hi2 = nhanes_mod.bootstrap_auc_ci(y, proba, n_reps=50, seed=42)
+    assert (lo, hi) == (lo2, hi2)  # seed-fixed determinism
+    from sklearn.metrics import roc_auc_score
+
+    auc = roc_auc_score(y, proba)
+    assert lo <= auc <= hi
+    assert lo <= hi
+
+
+def test_no_recorded_uci_auc_reference():
+    # The cross-dataset comparison against the recorded v9 UCI test AUC
+    # must never be built: no source line may reference it.
+    import pathlib
+    import re
+
+    src = pathlib.Path(nhanes_mod.__file__).read_text()
+    assert re.search(r"\buci\b", src, re.IGNORECASE) is None
+    assert "1.0" not in src

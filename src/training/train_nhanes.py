@@ -1,22 +1,39 @@
-"""Phase 7 - NHANES-native training entry point (tracer: logistic regression).
+"""Phase 7 - NHANES-native training entry point (9-config sweep, 07-02).
 
 Native-schema counterpart to ``src/training/train.py``: the quarantine
-gate runs before any split, the locked holdout is split once, the native
-pipeline is fitted on dev only, and one Claim-2 MLflow run (pipeline +
-model artifacts, 5 metrics) lands under the ``corvus-ckd-nhanes``
-experiment tagged ``schema=nhanes-native``, registered as ``corvus-ckd``.
+gate runs before any split, the locked holdout is split once, CV folds
+come from the dev split only with a fresh pipeline fit per fold-train,
+and the winning config is refit on full dev and scored once on the
+holdout. Each Claim-2 MLflow run (pipeline + model artifacts, 5 metrics)
+lands under the ``corvus-ckd-nhanes`` experiment tagged
+``schema=nhanes-native`` and registered as ``corvus-ckd``.
+
+Selection is strict-max on CV-mean ROC-AUC. The holdout prediction
+frame (row ids, true labels, probabilities) is logged as an artifact so
+the paired comparison in ``src/evaluation/evaluate_nhanes.py`` can prove
+same-rows same-labels without ever refitting on the holdout.
 
 Invoked as ``python -m src.training.train_nhanes`` from the project root.
 """
 
 import os
+import warnings
 from pathlib import Path
 
 import joblib
 import mlflow
 import mlflow.sklearn
+import numpy as np
 import pandas as pd
+from lightgbm import LGBMClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import StratifiedKFold
+from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier
+from xgboost import XGBClassifier
 
 from src.preprocessing.preprocess_nhanes import (
     DERIVED_LABEL_DISCLOSURE,
@@ -27,6 +44,7 @@ from src.preprocessing.preprocess_nhanes import (
     locked_holdout_split,
 )
 from src.training.train import compute_metrics
+from src.training.train_mlp import ACTIVATIONS, MAX_ITER
 from src.utils.config import PROJECT_ROOT, load_config
 from src.utils.logger import get_logger
 
@@ -38,14 +56,46 @@ os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
 
 REGISTERED_MODEL_NAME = "corvus-ckd"
 
-# Tracer slice: logistic regression only (same seeded shape as the analog).
-# Plan 07-02 expands to the full 9-config slate.
+# Full 9-config slate: the 6 classical Phase-2 hyperparameters verbatim
+# (each seeded) plus the 3 MLP activations via the train_mlp map with the
+# locked small hidden layer and fixed iteration budget, all seeded.
 NATIVE_ESTIMATORS = {
     # Baseline linear model; random_state keeps the lbfgs shuffling reproducible.
     "logistic-regression": LogisticRegression(random_state=42),
+    # Single-tree baseline isolating split quality from ensembling gains.
+    "decision-tree": DecisionTreeClassifier(random_state=42),
+    # Bagged trees tame single-tree variance on noisy clinical rows.
+    "random-forest": RandomForestClassifier(random_state=42),
+    # Sequential-error correction as the boosting foil to bagging.
+    "gradient-boosting": GradientBoostingClassifier(random_state=42),
+    # Gradient boosting with sparsity-aware splits for heavy-missingness columns.
+    "xgboost": XGBClassifier(random_state=42),
+    # Leaf-wise booster for a second gradient-boosting family; verbosity silenced.
+    "lightgbm": LGBMClassifier(random_state=42, verbosity=-1),
+    # MLP activations via the train_mlp map ("sigmoid" translates to
+    # sklearn's "logistic"; never pass the literal "sigmoid" to sklearn).
+    "mlp-sigmoid": MLPClassifier(
+        hidden_layer_sizes=(50,),
+        activation=ACTIVATIONS["sigmoid"],
+        max_iter=MAX_ITER,
+        random_state=42,
+    ),
+    "mlp-tanh": MLPClassifier(
+        hidden_layer_sizes=(50,),
+        activation=ACTIVATIONS["tanh"],
+        max_iter=MAX_ITER,
+        random_state=42,
+    ),
+    "mlp-relu": MLPClassifier(
+        hidden_layer_sizes=(50,),
+        activation=ACTIVATIONS["relu"],
+        max_iter=MAX_ITER,
+        random_state=42,
+    ),
 }
 
 NATIVE_PIPELINE_FILENAME = "preprocessing_pipeline_nhanes.joblib"
+HOLDOUT_PREDS_FILENAME = "holdout_predictions_native.csv"
 
 
 def build_native_estimator(name: str):
@@ -56,8 +106,23 @@ def build_native_estimator(name: str):
     return base.__class__(**base.get_params())
 
 
-def run_experiment_native(name: str = "logistic-regression") -> dict:
-    """Train one native config end-to-end and log the Claim-2 MLflow run."""
+def _fit_native(estimator, X_train_t, y_train, name: str):
+    """Fit one estimator; record-and-log ConvergenceWarning, never raise."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", ConvergenceWarning)
+        estimator.fit(X_train_t, y_train)
+    for warning in caught:
+        log.warning(f"Native ({name}) training notice: {warning.message}")
+    return estimator
+
+
+def load_native_frame():
+    """Load the derived CSV and project the native allow-list frame.
+
+    Returns ``(X, y, numeric_cols, categorical_cols)``. The quarantined
+    label-source columns ride along in the locked CSV by design and are
+    dropped by the allow-list projection, never model inputs.
+    """
     cfg = load_config()
     target_col = cfg["data"]["nhanes_target_column"]
     positive_label = cfg["data"]["nhanes_positive_label"]
@@ -68,8 +133,6 @@ def run_experiment_native(name: str = "logistic-regression") -> dict:
     numeric_cols, categorical_cols = get_nhanes_column_lists()
     numeric_cols = [c for c in numeric_cols if c in df.columns]
     categorical_cols = [c for c in categorical_cols if c in df.columns]
-    # The locked CSV carries the quarantined label-source columns by
-    # design; they are dropped by the allow-list projection, never inputs.
     dropped_quarantine = sorted(set(df.columns) & QUARANTINE_11)
     if dropped_quarantine:
         log.info(f"Excluded quarantined label-source columns: {dropped_quarantine}")
@@ -92,23 +155,124 @@ def run_experiment_native(name: str = "logistic-regression") -> dict:
             == str(positive_label).strip().lower()
         ).astype(int)
     X = df[numeric_cols + categorical_cols]
+    return X, y, numeric_cols, categorical_cols
+
+
+def run_cv_native(
+    name: str,
+    X_dev: pd.DataFrame,
+    y_dev: pd.Series,
+    numeric_cols: list,
+    categorical_cols: list,
+    n_splits: int = 5,
+) -> dict:
+    """Stratified 5-fold CV for one config over the dev split only.
+
+    Fresh ``build_native_pipeline`` fit per fold-train; per-fold ROC-AUC
+    from probabilities. The holdout is never referenced here.
+    """
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+    fold_aucs = []
+    for tr, va in skf.split(X_dev, y_dev):
+        pipe = build_native_pipeline(numeric_cols, categorical_cols)
+        pipe.fit(X_dev.iloc[tr])  # fit on fold-train only (leak-safe)
+        estimator = build_native_estimator(name)
+        _fit_native(
+            estimator,
+            pipe.transform(X_dev.iloc[tr]),
+            y_dev.iloc[tr],
+            name,
+        )
+        proba = estimator.predict_proba(pipe.transform(X_dev.iloc[va]))[:, 1]
+        fold_aucs.append(float(roc_auc_score(y_dev.iloc[va], proba)))
+    return {
+        "mean_auc": float(np.mean(fold_aucs)),
+        "std_auc": float(np.std(fold_aucs)),
+        "fold_aucs": fold_aucs,
+    }
+
+
+def bootstrap_auc_ci(y_true, y_proba, n_reps=None, seed: int = 42):
+    """Stratified bootstrap CI for holdout ROC-AUC (percentile bounds).
+
+    Positives and negatives are resampled separately with
+    ``default_rng(seed)``; returns the 2.5 and 97.5 percentile bounds.
+    """
+    if n_reps is None:
+        n_reps = int(load_config()["data"].get("nhanes_bootstrap_reps", 2000))
+    y = np.asarray(y_true)
+    p = np.asarray(y_proba, dtype=float)
+    pos = np.flatnonzero(y == 1)
+    neg = np.flatnonzero(y == 0)
+    rng = np.random.default_rng(seed)
+    aucs = []
+    for _ in range(int(n_reps)):
+        idx = np.concatenate(
+            [
+                rng.choice(pos, len(pos), replace=True),
+                rng.choice(neg, len(neg), replace=True),
+            ]
+        )
+        aucs.append(roc_auc_score(y[idx], p[idx]))
+    lo, hi = np.percentile(aucs, [2.5, 97.5])
+    return float(lo), float(hi)
+
+
+def sweep_native(
+    X_dev: pd.DataFrame,
+    y_dev: pd.Series,
+    numeric_cols: list,
+    categorical_cols: list,
+) -> dict:
+    """CV-mean sweep over all 9 configs (in-memory; no MLflow, no holdout)."""
+    results = {}
+    for name in NATIVE_ESTIMATORS:
+        cv = run_cv_native(name, X_dev, y_dev, numeric_cols, categorical_cols)
+        log.info(
+            f"CV native-{name}: mean_auc={cv['mean_auc']:.4f} "
+            f"std={cv['std_auc']:.4f}"
+        )
+        results[name] = cv
+    return results
+
+
+def select_by_cv(cv_results: dict) -> str:
+    """Strict-max on CV-mean ROC-AUC. No tie-break logic by design."""
+    return max(cv_results, key=lambda n: cv_results[n]["mean_auc"])
+
+
+def run_experiment_native(name: str = "logistic-regression", cv_stats: dict = None) -> dict:
+    """Refit the winning config on full dev, score the holdout once, log Claim-2."""
+    X, y, numeric_cols, categorical_cols = load_native_frame()
     assert_quarantine(X)  # gate on the training frame, before any split or fit
 
     X_dev, X_hold, y_dev, y_hold = locked_holdout_split(X, y)
+    if cv_stats is None:
+        cv_stats = run_cv_native(name, X_dev, y_dev, numeric_cols, categorical_cols)
 
     pipeline = build_native_pipeline(numeric_cols, categorical_cols)
     pipeline.fit(X_dev)  # fit on dev only (leak-safe)
     X_hold_t = pipeline.transform(X_hold)
 
     estimator = build_native_estimator(name)
-    estimator.fit(pipeline.transform(X_dev), y_dev)
+    _fit_native(estimator, pipeline.transform(X_dev), y_dev, name)
     y_pred = estimator.predict(X_hold_t)
     y_proba = estimator.predict_proba(X_hold_t)[:, 1]
     metrics = compute_metrics(y_hold, y_pred, y_proba)
+    ci_lo, ci_hi = bootstrap_auc_ci(y_hold, y_proba)
 
+    cfg = load_config()
     pipeline_path = Path(cfg["data"]["processed_dir"]) / NATIVE_PIPELINE_FILENAME
     pipeline_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(pipeline, pipeline_path)
+    holdout_path = Path(cfg["data"]["processed_dir"]) / HOLDOUT_PREDS_FILENAME
+    pd.DataFrame(
+        {
+            "row_id": np.asarray(X_hold.index),
+            "y_true": np.asarray(y_hold, dtype=int),
+            "y_proba": np.asarray(y_proba, dtype=float),
+        }
+    ).to_csv(holdout_path, index=False)
 
     mlflow.set_tracking_uri(str(PROJECT_ROOT / cfg["mlflow"]["tracking_uri"]))
     mlflow.set_experiment(cfg["mlflow"]["nhanes_experiment_name"])
@@ -117,8 +281,18 @@ def run_experiment_native(name: str = "logistic-regression") -> dict:
         mlflow.set_tag("label_disclosure", DERIVED_LABEL_DISCLOSURE)
         mlflow.set_tag("quarantine_attested", "true")
         mlflow.log_params({**estimator.get_params(), "model": type(estimator).__name__})
-        mlflow.log_metrics({**metrics, "holdout_roc_auc": metrics["roc_auc"]})
+        mlflow.log_metrics(
+            {
+                **metrics,
+                "holdout_roc_auc": metrics["roc_auc"],
+                "cv_mean_auc": cv_stats["mean_auc"],
+                "cv_std_auc": cv_stats["std_auc"],
+                "holdout_auc_ci_lo": ci_lo,
+                "holdout_auc_ci_hi": ci_hi,
+            }
+        )
         mlflow.log_artifact(str(pipeline_path), artifact_path="preprocessing")
+        mlflow.log_artifact(str(holdout_path), artifact_path="evaluation")
         mlflow.sklearn.log_model(
             estimator,
             artifact_path="model",
@@ -127,15 +301,38 @@ def run_experiment_native(name: str = "logistic-regression") -> dict:
         )
         run_id = run.info.run_id
     log.info(f"Logged native run {name} ({run_id}) with metrics {metrics}")
+    log.info(
+        f"CV mean_auc={cv_stats['mean_auc']:.4f} "
+        f"std={cv_stats['std_auc']:.4f}; holdout AUC CI [{ci_lo:.4f}, {ci_hi:.4f}]"
+    )
     log.info(f"Disclosure: {DERIVED_LABEL_DISCLOSURE}")
-    return {"run_id": run_id, "metrics": metrics, "features": list(X.columns)}
+    return {
+        "run_id": run_id,
+        "metrics": metrics,
+        "features": list(X.columns),
+        "cv": cv_stats,
+        "ci": (ci_lo, ci_hi),
+    }
 
 
 def main():
-    for name in NATIVE_ESTIMATORS:
-        result = run_experiment_native(name)
-        print(f"TRAINED native-{name} roc_auc={result['metrics']['roc_auc']:.4f}")
-        print(f"Disclosure: {DERIVED_LABEL_DISCLOSURE}")
+    X, y, numeric_cols, categorical_cols = load_native_frame()
+    assert_quarantine(X)
+    X_dev, X_hold, y_dev, y_hold = locked_holdout_split(X, y)  # holdout sealed
+    cv_results = sweep_native(X_dev, y_dev, numeric_cols, categorical_cols)
+    print("CV SUMMARY (dev-only folds; holdout untouched):")
+    for name, cv in cv_results.items():
+        print(
+            f"  native-{name} cv_mean_auc={cv['mean_auc']:.4f} "
+            f"cv_std={cv['std_auc']:.4f}"
+        )
+    winner = select_by_cv(cv_results)
+    result = run_experiment_native(winner, cv_stats=cv_results[winner])
+    print(
+        f"TRAINED native-{winner} roc_auc={result['metrics']['roc_auc']:.4f} "
+        f"cv_mean={result['cv']['mean_auc']:.4f}"
+    )
+    print(f"Disclosure: {DERIVED_LABEL_DISCLOSURE}")
 
 
 if __name__ == "__main__":
