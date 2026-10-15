@@ -151,7 +151,7 @@
 
 ## Phase 7: NHANES Native Retrain
 
-**Status**: 🔄 In Progress (07-01 + 07-02 complete 2026-10-15: v11 Production, pin "11" for 07-03; 07-03 pending)
+**Status**: ✅ Complete (07-01 + 07-02 + 07-03 done 2026-10-15: v11 Production, /v2 serving-path live with fail-closed default, v1 untouched, suite 74 passed)
 **Delivers**: NHANES-native pipeline + 9 configs trained on 5,343 derived rows, CV + CIs, challenger vs v9 champion, winner promoted, API serving new schema
 **Patent impact**: None new (exercises Claim 2 + Claim 4 on a second cohort)
 **Depends on**: Phase 3 (registry + serving loop); data track (`data/nhanes/nhanes_ckd_derived.csv`, `NHANES_PROTOCOL.md`)
@@ -165,12 +165,12 @@
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 07-02-PLAN.md — 9-config CV expansion plus paired harmonized comparison plus Staging plus human promotion gate (wave 2, COMPLETE 2026-10-15: GB winner holdout 0.8265, paired qualifies=True, gate APPROVED → v11 Production / v9 Archived intact, pin "11" for 07-03, suite 59 passed post-promotion)
-- [ ] 07-03-PLAN.md — Native schemas plus v2 loader slot plus /v2 routes plus v2 log table plus v2 tests (wave 2, blocked on 07-01)
+- [x] 07-03-PLAN.md — Native schemas plus v2 loader slot plus /v2 routes plus v2 log table plus v2 tests (wave 2, COMPLETE 2026-10-15: /v2 serves version-stamped native predictions with isolated logging, unconfigured 503 fail-closed, Rule 1 native-artifact-path fix proven live against v11, suite 74 passed; cutover is deploy-time MODEL_VERSION_V2=11)
 
 ### Tasks
 
 - [ ] Build NHANES-native training set (~14 mapped + demographic/comorbidity features; quarantine held; no 24-field forcing)
 - [x] Fit new pipeline on NHANES train split; train 9 configs with stratified 5-fold CV + confidence intervals
 - [x] Register challenger versions; promote iff beats v9 champion on the locked rule (v11 Production 2026-10-15 on APPROVE; v9 Archived intact)
-- [ ] Evolve API schema to serve the NHANES-native model (versioned; v9 keeps serving until promotion)
-- [ ] Write training + serving tests for the new schema
+- [x] Evolve API schema to serve the NHANES-native model (versioned; v9 keeps serving until promotion — /v2 live 2026-10-15, cutover is deploy-time pin flip)
+- [x] Write training + serving tests for the new schema (15-test v2 suite + v1 regression)

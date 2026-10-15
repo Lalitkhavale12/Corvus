@@ -20,9 +20,9 @@ current_phase_name: NHANES Native Retrain
 ## Current Position
 
 - **Milestone**: M1 (Initial Build)
-- **Active Phase**: Phase 7 — NHANES Native Retrain (07-01 complete; 07-02 COMPLETE 2026-10-15 — gate APPROVED, v11 Production, pin "11" for 07-03)
-- **Next Phase**: 07-03 v2 serving (pin api.v2_pinned_version="11", gradient-boosting run 5954f069)
-- **Blocked**: Nothing — gate resolved; 07-03 unblocked
+- **Active Phase**: Phase 7 — NHANES Native Retrain (07-01 + 07-02 + 07-03 COMPLETE 2026-10-15 — /v2 serves v11-capable slot, pin flip is deploy-time)
+- **Next Phase**: Production cutover (MODEL_VERSION_V2=11) + Phase 4/5/6 pending
+- **Blocked**: Nothing — Phase 7 complete
 
 ## Phase Status
 
@@ -32,11 +32,20 @@ current_phase_name: NHANES Native Retrain
 | 2 — Model Training | ✅ Implementation Complete (02-01 tracer + 02-02 expansion done) | 2026-09-21 |
 | 3 — API + Containers | ✅ Complete (03-01, 03-02, 03-03, 03-04 done 2026-09-23) | 2026-09-23 |
 | 4 — CI/CD + Monitoring | ⬜ Not Started | — |
-| 7 — NHANES Native Retrain | 🔄 In Progress (07-01 + 07-02 complete 2026-10-15: v11 Production, pin "11"; 07-03 pending) | 2026-10-15 |
+| 7 — NHANES Native Retrain | ✅ Complete (07-01 + 07-02 + 07-03 done 2026-10-15: v11 Production served on /v2-capable slot, v1 untouched) | 2026-10-15 |
 | 5 — Drift + Retraining | ⬜ Not Started | — |
 | 6 — Visualization + Polish | ⬜ Not Started | — |
 
 ## Completed Work
+
+### Phase 7 plan 07-03 (v2 native serving, COMPLETE 2026-10-15)
+
+- ✅ `CKDRequestNative` (16 nullable numerics + 5 NHANES-coded int-Literal categoricals verified against the locked CSV) + `NativeBatchItem`; v1 `CKDRequest` untouched
+- ✅ `resolve_v2_version` (MODEL_VERSION_V2 else api.v2_pinned_version) + `load_v2_artifacts` with native width assert; Rule 1 fix — reads `preprocessing_pipeline_nhanes.joblib` (07-01 distinct filename), proven live: v11 GB run 5954f069 loads, width 30 == n_features_in_, real NHANES rows score
+- ✅ `/v2/predict` + `/v2/batch_predict` + `/v2/model_info` with `_require_v2` 503 fail-closed naming api.v2_pinned_version; `PredictionLogV2` on `predictions_v2`; v1 handlers + `predictions` table untouched (test_api.py 19 passed unchanged)
+- ✅ 15-test `tests/test_api_v2.py` (strictness, fail-closed, guards, isolation scan, v1 regression, artifact-path drift pin); full suite 74 passed, 0 failed
+- ✅ Decisions: config pin stays "" (keeps test hermeticity; cutover is deploy-time MODEL_VERSION_V2=11); commits on main per sequential instruction
+- ✅ Requirements FR-4.1, FR-4.2, FR-4.3 delivered (v2 serving expansion)
 
 ### Phase 7 plan 07-02 (9-config sweep + paired comparison + APPROVED promotion, COMPLETE 2026-10-15)
 
@@ -143,6 +152,8 @@ current_phase_name: NHANES Native Retrain
 | D10 | Holdout-predictions artifact as the evaluation handoff | 2026-10-15 | Logged row_id/y_true/y_proba lets evaluation prove same-rows/same-labels with zero native refitting (07-02 deviation) |
 | D11 | v11 Staging, v10 Archived, v9 Production; promotion script unrun | 2026-10-15 | Gate-pending registry posture; no Production transition without explicit approval (D-04) |
 | D12 | APPROVE v11 executed: v11 Production, v9 Archived intact, api.v2_pinned_version="11" for 07-03 | 2026-10-15 | Explicit human approval crossed the D-04 boundary; archive_existing_versions transitioned v9 (never deleted); hard-cutover pin handed to serving |
+| D13 | Config pin stays empty-string; cutover is deploy-time MODEL_VERSION_V2=11 | 2026-10-15 | Setting "11" in config.yaml would break test_api.py hermeticity (lifespan hits real registry); live v11 load probe proves the flip safe whenever deployed (07-03 decision) |
+| D14 | V2 loader reads preprocessing_pipeline_nhanes.joblib (Rule 1 fix) | 2026-10-15 | Plan-literal v1 artifact path raised MlflowException against real v11; registry listing proved the native filename; drift-pinned by unit test (07-03 deviation) |
 
 ## Open Questions
 
@@ -155,6 +166,6 @@ Start with `/gsd-plan-phase 2` to begin model training (Phase 1 is complete and 
 
 ## Session
 
-**Last session:** 2026-10-15T15:07:50Z
-**Stopped at:** 07-02 COMPLETE (sweep + comparison + APPROVED v11 promotion live, pin "11" recorded); 07-03 v2 serving unblocked
-**Resume file:** .planning/phases/07-nhanes-native-retrain/07-02-SUMMARY.md
+**Last session:** 2026-10-15T21:30Z
+**Stopped at:** 07-03 COMPLETE (v2 serving live-capable, 74 passed, Phase 7 complete); production cutover is deploy-time MODEL_VERSION_V2=11
+**Resume file:** .planning/phases/07-nhanes-native-retrain/07-03-SUMMARY.md
