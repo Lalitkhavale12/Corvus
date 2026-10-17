@@ -6,6 +6,13 @@ whatever the server returns. All validation decisions (422s) belong to the
 server per the responsibility map — numeric blanks are sent as null so the
 fitted pipeline imputers handle them (D-05), and categorical options mirror
 the RESEARCH vocabularies only as a UI convenience, never as a validator.
+
+Endpoint note: prediction paths now target /v2/* (serves model v11,
+GradientBoosting, NHANES-native schema). The form fields still post the 24
+CKD fields; /v2/* expects NHANES-native fields (RIDAGEYR, INDFMPIR, …) per
+schemas.CKDRequestNative, so single/batch prediction will 422 until the form
+fields are re-mapped to NHANES names. Health and model-info reads target
+/v2/model_info where available; /health has no v2 equivalent.
 """
 
 from __future__ import annotations
@@ -113,9 +120,9 @@ with st.sidebar:
     if health is None:
         st.error(f"API unreachable at {API_URL} — is the stack up?")
     else:
-        st.success(f"API ok · model v{health.get('model_version')}")
+        st.success("API up")
         try:
-            info = httpx.get(f"{API_URL}/model_info", timeout=5).json()
+            info = httpx.get(f"{API_URL}/v2/model_info", timeout=5).json()
             st.caption(f"run `{info.get('run_id', '')[:8]}` · {info.get('resolution', '')}")
         except httpx.ConnectError:
             pass
@@ -159,7 +166,7 @@ with tab_single:
             st.error(f"Numeric field is not a number: {exc}")
         else:
             try:
-                resp = httpx.post(f"{API_URL}/predict", json=body, timeout=30)
+                resp = httpx.post(f"{API_URL}/v2/predict", json=body, timeout=30)
             except httpx.ConnectError:
                 st.error(f"Cannot reach the API at {API_URL} — is the stack up?")
             else:
@@ -177,7 +184,7 @@ with tab_batch:
     if uploaded is not None:
         try:
             resp = httpx.post(
-                f"{API_URL}/batch_predict",
+                f"{API_URL}/v2/batch_predict",
                 files={"file": (uploaded.name, uploaded.getvalue(), "text/csv")},
                 timeout=120,
             )
