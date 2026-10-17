@@ -1,18 +1,16 @@
 """Thin Streamlit client for the Corvus prediction API (FR-4.1).
 
-Zero model logic lives here: this module renders a grouped 24-field form and
-a CSV upload picker, forwards both to the API over HTTP, and displays
+Zero model logic lives here: this module renders grouped NHANES-native fields
+and a CSV upload picker, forwards both to the API over HTTP, and displays
 whatever the server returns. All validation decisions (422s) belong to the
 server per the responsibility map — numeric blanks are sent as null so the
 fitted pipeline imputers handle them (D-05), and categorical options mirror
-the RESEARCH vocabularies only as a UI convenience, never as a validator.
+the NHANES vocabularies only as a UI convenience, never as a validator.
 
-Endpoint note: prediction paths now target /v2/* (serves model v11,
-GradientBoosting, NHANES-native schema). The form fields still post the 24
-CKD fields; /v2/* expects NHANES-native fields (RIDAGEYR, INDFMPIR, …) per
-schemas.CKDRequestNative, so single/batch prediction will 422 until the form
-fields are re-mapped to NHANES names. Health and model-info reads target
-/v2/model_info where available; /health has no v2 equivalent.
+Prediction paths target /v2/* (serves model v11, GradientBoosting,
+NHANES-native schema per schemas.CKDRequestNative: 16 numerics + 5
+categoricals). Health reads /health (no v2 equivalent); model-info reads
+/v2/model_info.
 """
 
 from __future__ import annotations
@@ -29,56 +27,79 @@ API_URL = os.environ.get("API_URL", "http://localhost:8000")
 # Field groups (display label, units hint). Order within each group follows
 # config column order; the request payload always uses raw field names.
 FIELD_GROUPS: dict[str, list[tuple[str, str]]] = {
-    "Vitals & demographics": [
-        ("age", "years"),
-        ("bp", "mm Hg"),
-        ("sg", "specific gravity"),
-        ("al", "albumin (0–5)"),
-        ("su", "sugar (0–5)"),
+    "Demographics": [
+        ("RIDAGEYR", "age in years"),
+        ("INDFMPIR", "income poverty ratio"),
     ],
-    "Blood labs": [
-        ("bgr", "mg/dL"),
-        ("bu", "mg/dL"),
-        ("sc", "mg/dL"),
-        ("sod", "mEq/L"),
-        ("pot", "mEq/L"),
-        ("hemo", "g/dL"),
-        ("pcv", "%"),
-        ("wc", "cells/cumm"),
-        ("rc", "millions/cumm"),
+    "Vitals": [
+        ("BMXBMI", "body mass index"),
+        ("BPXOSY1", "systolic BP (mm Hg)"),
+        ("BPXODI1", "diastolic BP (mm Hg)"),
+    ],
+    "Blood chemistry": [
+        ("LBDSBUSI", ""),
+        ("LBDSGLSI", "glucose (SI)"),
+        ("LBXSNASI", "sodium (SI)"),
+        ("LBXSKSI", "potassium (SI)"),
+        ("LBDSCASI", "calcium (SI)"),
+        ("LBDSPHSI", "phosphorus (SI)"),
+    ],
+    "Hematology": [
+        ("LBXHGB", "hemoglobin (g/dL)"),
+        ("LBXHCT", "hematocrit (%)"),
+        ("LBXWBCSI", "WBC (SI)"),
+        ("LBXRBCSI", "RBC (SI)"),
+    ],
+    "Metabolic": [
+        ("LBXGH", "glycohemoglobin (%)"),
     ],
 }
 
 CATEGORICAL_OPTIONS: dict[str, list[str]] = {
-    "rbc": ["abnormal", "normal"],
-    "pc": ["abnormal", "normal"],
-    "pcc": ["notpresent", "present"],
-    "ba": ["notpresent", "present"],
-    "htn": ["no", "yes"],
-    "dm": ["no", "yes"],
-    "cad": ["no", "yes"],
-    "appet": ["good", "poor"],
-    "pe": ["no", "yes"],
-    "ane": ["no", "yes"],
+    "RIAGENDR": ["1 — Male", "2 — Female"],
+    "RIDRETH1": [
+        "1 — Mexican American",
+        "2 — Other Hispanic",
+        "3 — White",
+        "4 — Black",
+        "5 — Other",
+    ],
+    "DMDEDUC2": [
+        "1 — < 9th grade",
+        "2 — 9–11th grade",
+        "3 — HS grad / GED",
+        "4 — Some college / AA",
+        "5 — College grad",
+        "9 — Missing",
+    ],
+    "DIQ010": ["1 — Yes", "2 — No", "3 — Borderline"],
+    "MCQ035": ["1 — Yes", "2 — No", "9 — Don't know"],
 }
 
-# One-click demo patients (real test-set rows; blanks flow to the imputers).
+# One-click demo patients (NHANES-native values; blanks flow to imputers).
 PRESETS: dict[str, dict] = {
     "— enter manually —": {},
     "Demo A — expected CKD": {
-        "age": "3", "bp": "", "sg": "1.01", "al": "2", "su": "0", "bgr": "",
-        "bu": "22", "sc": "0.7", "sod": "", "pot": "", "hemo": "10.7",
-        "pcv": "34", "wc": "12300", "rc": "", "rbc": "normal", "pc": "normal",
-        "pcc": "notpresent", "ba": "notpresent", "htn": "no", "dm": "no",
-        "cad": "no", "appet": "good", "pe": "no", "ane": "no",
+        "RIDAGEYR": "65", "INDFMPIR": "1.5",
+        "BMXBMI": "32", "BPXOSY1": "150", "BPXODI1": "95",
+        "LBDSBUSI": "140", "LBDSGLSI": "130", "LBXSNASI": "135",
+        "LBXSKSI": "4.0", "LBDSCASI": "9.0", "LBDSPHSI": "4.5",
+        "LBXHGB": "11.0", "LBXHCT": "33", "LBXWBCSI": "7.5",
+        "LBXRBCSI": "3.8", "LBXGH": "7.5",
+        "RIAGENDR": "1 — Male", "RIDRETH1": "4 — Black",
+        "DMDEDUC2": "3 — HS grad / GED", "DIQ010": "1 — Yes",
+        "MCQ035": "1 — Yes",
     },
     "Demo B — expected healthy": {
-        "age": "52", "bp": "80", "sg": "1.025", "al": "0", "su": "0",
-        "bgr": "99", "bu": "25", "sc": "0.8", "sod": "135", "pot": "3.7",
-        "hemo": "15", "pcv": "52", "wc": "6300", "rc": "5.3",
-        "rbc": "normal", "pc": "normal", "pcc": "notpresent",
-        "ba": "notpresent", "htn": "no", "dm": "no", "cad": "no",
-        "appet": "good", "pe": "no", "ane": "no",
+        "RIDAGEYR": "35", "INDFMPIR": "3.5",
+        "BMXBMI": "23", "BPXOSY1": "115", "BPXODI1": "75",
+        "LBDSBUSI": "135", "LBDSGLSI": "90", "LBXSNASI": "140",
+        "LBXSKSI": "4.2", "LBDSCASI": "9.5", "LBDSPHSI": "3.8",
+        "LBXHGB": "15.0", "LBXHCT": "45", "LBXWBCSI": "6.0",
+        "LBXRBCSI": "4.8", "LBXGH": "5.2",
+        "RIAGENDR": "2 — Female", "RIDRETH1": "3 — White",
+        "DMDEDUC2": "4 — Some college / AA", "DIQ010": "2 — No",
+        "MCQ035": "2 — No",
     },
 }
 
@@ -89,6 +110,11 @@ def _parse_numeric(raw: str) -> float | None:
     if not raw:
         return None
     return float(raw)
+
+
+def _parse_categorical(raw: str) -> str:
+    """Strip the leading 'N — ' prefix, keep just the code value."""
+    return raw.split(" — ")[0] if raw else raw
 
 
 def _api_alive() -> dict | None:
@@ -144,7 +170,7 @@ with tab_single:
             for i, (field, hint) in enumerate(fields):
                 with cols[i % 3]:
                     payload[field] = st.text_input(
-                        f"{field} ({hint}; blank = missing)",
+                        f"{field} ({hint}; blank = missing)" if hint else f"{field} (blank = missing)",
                         key=f"fld_{field}",
                     )
         st.subheader("History & examination")
@@ -160,8 +186,16 @@ with tab_single:
 
     if submitted:
         try:
-            numeric = {f: _parse_numeric(payload[f]) for fields in FIELD_GROUPS.values() for f, _ in fields}
-            body = {**numeric, **{f: payload[f] for f in CATEGORICAL_OPTIONS}}
+            numeric = {
+                f: _parse_numeric(payload[f])
+                for fields in FIELD_GROUPS.values()
+                for f, _ in fields
+            }
+            categorical = {
+                f: _parse_categorical(payload[f])
+                for f in CATEGORICAL_OPTIONS
+            }
+            body = {**numeric, **categorical}
         except ValueError as exc:
             st.error(f"Numeric field is not a number: {exc}")
         else:
@@ -179,7 +213,7 @@ with tab_single:
                     st.error(f"Server error ({resp.status_code}): {resp.text}")
 
 with tab_batch:
-    st.write("Upload a CSV with the 24 columns — one bad row rejects the whole batch with its row number.")
+    st.write("Upload a CSV with NHANES-native columns — one bad row rejects the whole batch with its row number.")
     uploaded = st.file_uploader("CSV file", type=["csv"])
     if uploaded is not None:
         try:
