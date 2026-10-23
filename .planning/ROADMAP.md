@@ -2,16 +2,18 @@
 
 > Milestone: M1 (Initial Build)
 > Status: Active
-> Last updated: 2026-09-19
+> Last updated: 2026-10-23
 
 ## Phase Overview
 
 | Phase | Name | Status | Requirements | Dependencies |
 |---|---|---|---|---|
 | **1** | Data Pipeline | ✅ Complete | FR-1.1 → FR-1.7 | None |
-| **2** | Model Training + Experiment Tracking | ⬜ Not Started | FR-2.1 → FR-2.5, FR-3.1 → FR-3.3 | Phase 1 |
-| **3** | Prediction API + Containerization | ⬜ Not Started | FR-4.1 → FR-4.4, FR-5.1 → FR-5.2 | Phase 2 |
-| **4** | CI/CD + Monitoring | ⬜ Not Started | FR-6.1, FR-7.1 → FR-7.2 | Phase 3 |
+| **2** | Model Training + Experiment Tracking | ✅ Complete | FR-2.1 → FR-2.5, FR-3.1 → FR-3.3 | Phase 1 |
+| **3** | Prediction API + Containerization | ✅ Complete | FR-4.1 → FR-4.4, FR-5.1 → FR-5.2 | Phase 2 |
+| **7** | NHANES Native Retrain | ✅ Complete | FR-2.1 → FR-4.3 | Phase 3 |
+| **8** | Web Platform + Authentication | 🔄 In Progress | FR-9.1 → FR-9.6, FR-10.1 → FR-10.3 | Phase 3 |
+| **4** | CI/CD + Monitoring | ⬜ Not Started | FR-6.1, FR-7.1 → FR-7.2 | Phase 8 |
 | **5** | Drift Detection + Auto-Retraining | ⬜ Not Started | FR-8.1 → FR-8.3, FR-9.1 → FR-9.4 | Phase 4 |
 | **6** | Visualization + Polish | ⬜ Not Started | FR-10.1 → FR-10.2, NFR-1 → NFR-5 | Phase 1 (can parallel) |
 
@@ -32,9 +34,6 @@
 - [x] Config-driven paths, splits, strategies (`config/config.yaml`)
 - [x] Centralized logging (Loguru → stderr + file)
 - [x] 4 pytest tests passing (clean, split disjointness, Pipeline type, no NaN)
-
-### Remaining
-
 - [x] EDA notebook (`notebooks/01_eda_ckd.ipynb`) — distributions, correlations, missing-value heatmap
 - [x] Great Expectations data validation schema (`data/validation/ckd_suite.json` + `validate.py`, GX 1.x)
 - [x] Additional test coverage (ingestion tests, `save_outputs()` integration test — 13/13 green)
@@ -48,7 +47,7 @@
 **Patent impact**: Claim 2 completion (pipeline + model in same MLflow run)
 **Depends on**: Phase 1 outputs (`data/processed/`, `preprocessing_pipeline.joblib`)
 
-### Tasks
+### Completed
 
 - [x] Plan 02-01 tracer: LR end-to-end (`src/training/train.py`), strict ROC-AUC ranking + Staging (`src/evaluation/evaluate.py`), Wave 0 fixtures
 - [x] Plan 02-02 expansion: `src/training/train.py` — LR, Decision Tree, Random Forest, Gradient Boosting, XGBoost, LightGBM (seeded, one rationale each)
@@ -65,26 +64,17 @@
 
 ## Phase 3: Prediction API + Containerization
 
-**Status**: 🔄 In Progress (03-01, 03-02, 03-03 complete 2026-09-23)
+**Status**: ✅ Complete (03-01, 03-02, 03-03, 03-04 complete 2026-09-23)
 **Delivers**: FastAPI service, Docker Compose stack, PostgreSQL prediction logging
 **Patent impact**: Claim 4 (model version per prediction)
 **Depends on**: Phase 2 (registered model in MLflow)
 
-**Plans:** 4 plans
-**Wave 1**
+### Completed
 
 - [x] 03-01-PLAN.md — Promotion v9 to Production plus deps plus config plus Wave 0 API stubs (wave 1, complete 2026-09-23: v9 Production, 26 passed, 8 stubs red)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
 - [x] 03-02-PLAN.md — Tracer: schemas plus loader plus /predict plus /health plus /model_info pinned version live (wave 2, complete 2026-09-23: versioned serving + fail-closed DB + 38 green)
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
 - [x] 03-03-PLAN.md — /batch_predict all-or-nothing plus full-record Postgres logging (wave 3, complete 2026-09-23: 413 guards + warn-ignore extras + typed response + 45 green)
 - [x] 03-04-PLAN.md — Dockerfile plus Compose stack plus Streamlit frontend (wave 3, complete 2026-09-23: image builds, live v9 on health/model_info/predict, Postgres row logged, 45 green, stack down)
-
-### Tasks
 
 - [x] Create `api/app.py` — FastAPI application (lifespan pin + 4 routes)
 - [x] Create `api/schemas.py` — Pydantic models with `model_version` field (**Claim 4**)
@@ -93,8 +83,66 @@
 - [x] Create prediction logging to PostgreSQL (full-record rows + single-commit batches, mocked-session tests, 03-03)
 - [x] Create `docker/Dockerfile` for FastAPI service
 - [x] Create `docker/docker-compose.yml` — FastAPI + MLflow + PostgreSQL
-- [x] Create `frontend/app.py` — Streamlit UI for predictions
+- [x] Create `frontend/app.py` — Streamlit UI for predictions (to be replaced by React website)
 - [x] Write API tests
+
+---
+
+## Phase 7: NHANES Native Retrain
+
+**Status**: ✅ Complete (07-01 + 07-02 + 07-03 done 2026-10-15: v11 Production, /v2 serving-path live with fail-closed default, v1 untouched, suite 74 passed)
+**Delivers**: NHANES-native pipeline + 9 configs trained on 5,343 derived rows, CV + CIs, challenger vs v9 champion, winner promoted, API serving new schema
+**Patent impact**: None new (exercises Claim 2 + Claim 4 on a second cohort)
+**Depends on**: Phase 3 (registry + serving loop); data track (`data/nhanes/nhanes_ckd_derived.csv`, `NHANES_PROTOCOL.md`)
+
+### Completed
+
+- [x] 07-01-PLAN.md — Tracer: native pipeline plus quarantine gate plus LR Claim-2 run plus Wave 0 training tests (wave 1, complete 2026-10-15: LR holdout roc_auc=0.8246, challenger v10, suite 50 passed)
+- [x] 07-02-PLAN.md — 9-config CV expansion plus paired harmonized comparison plus Staging plus human promotion gate (wave 2, COMPLETE 2026-10-15: GB winner holdout 0.8265, paired qualifies=True, gate APPROVED → v11 Production / v9 Archived intact, pin "11" for 07-03, suite 59 passed post-promotion)
+- [x] 07-03-PLAN.md — Native schemas plus v2 loader slot plus /v2 routes plus v2 log table plus v2 tests (wave 2, COMPLETE 2026-10-15: /v2 serves version-stamped native predictions with isolated logging, unconfigured 503 fail-closed, Rule 1 native-artifact-path fix proven live against v11, suite 74 passed; cutover is deploy-time MODEL_VERSION_V2=11)
+
+- [x] Native config keys in config.yaml (16+5 allow-list, 11 quarantine names, 0.2/42 split, 5-fold, 2000 bootstrap; existing keys byte-identical)
+- [x] `src/preprocessing/preprocess_nhanes.py`: QUARANTINE_11, DERIVED_LABEL_DISCLOSURE, allow-list column lists, gate-before-split, unfitted native pipeline, locked 80/20 split
+- [x] `src/training/train_nhanes.py`: 9-config NATIVE_ESTIMATORS with dev-only run_cv_native, bootstrap_auc_ci, sweep_native + strict-max select_by_cv
+- [x] `src/evaluation/evaluate_nhanes.py`: paired bootstrap diff CI, strict-greater rule, Production-guarded staging
+- [x] `src/training/harmonize_v9.py`: eval-only harmonization adapter, unreachable from serving code
+- [x] `api/schemas.py`: CKDRequestNative (16 nullable numerics + 5 NHANES-coded int-Literal categoricals) + NativeBatchItem
+- [x] `api/app.py`: /v2/predict, /v2/batch_predict, /v2/model_info with _require_v2 503 fail-closed; PredictionLogV2 on predictions_v2
+- [x] v1 routes untouched: /predict, /batch_predict, /health, /model_info serving v9
+- [x] Docker Compose: MODEL_VERSION_V2=11 pinned for api service; synced mlruns container copy
+- [x] Streamlit frontend remapped to /v2 endpoints with NHANES-native form fields (committed 51dd12b)
+- [x] Full suite: 74 passed, 0 failed
+
+---
+
+## Phase 8: Web Platform + Authentication (NEW)
+
+**Status**: 🔄 In Progress
+**Delivers**: Multi-user React website with email/password auth, patient/doctor roles, authenticated predictions, prediction history
+**Patent impact**: Claim 4 (model version per prediction, now user-linked)
+**Depends on**: Phase 3 (FastAPI backend, MLflow registry, Docker Compose)
+
+### Plans
+
+#### Wave 1: Backend Auth Foundation
+
+- [x] **8-01-PLAN.md** — SQLAlchemy + Alembic setup, User model, password hashing, JWT tokens, register/login endpoints, protected route dependencies
+
+#### Wave 2: User Profiles & Role-Based Access
+
+- [ ] **8-02-PLAN.md** — Patient and doctor profile models, profile creation endpoints, patient-doctor mapping, role-based dependencies (get_current_patient, get_current_doctor)
+
+#### Wave 3: Authenticated Predictions & History
+
+- [ ] **8-03-PLAN.md** — Protect /v2/predict and /v2/batch_predict with JWT, link predictions to user profiles, prediction history endpoints, patient dashboard data
+
+#### Wave 4: React Frontend Website
+
+- [ ] **8-04-PLAN.md** — React + Vite + Tailwind frontend, login/register pages, patient dashboard, doctor dashboard, prediction form, history pages, protected routes
+
+#### Wave 5: Docker Compose + Local Deployment
+
+- [ ] **8-05-PLAN.md** — Frontend service in Docker Compose, CORS configuration, environment variables (SECRET_KEY, DATABASE_URL), local run verification
 
 ---
 
@@ -102,7 +150,7 @@
 
 **Status**: ⬜ Not Started
 **Delivers**: GitHub Actions workflow, Prometheus metrics, Grafana dashboard
-**Depends on**: Phase 3 (Docker image to build/push)
+**Depends on**: Phase 8 (Docker image to build/push)
 
 ### Tasks
 
@@ -146,31 +194,3 @@
 - [ ] End-to-end integration testing
 - [ ] Documentation pass, architecture diagram, demo script
 - [ ] Final README update
-
----
-
-## Phase 7: NHANES Native Retrain
-
-**Status**: ✅ Complete (07-01 + 07-02 + 07-03 done 2026-10-15: v11 Production, /v2 serving-path live with fail-closed default, v1 untouched, suite 74 passed)
-**Delivers**: NHANES-native pipeline + 9 configs trained on 5,343 derived rows, CV + CIs, challenger vs v9 champion, winner promoted, API serving new schema
-**Patent impact**: None new (exercises Claim 2 + Claim 4 on a second cohort)
-**Depends on**: Phase 3 (registry + serving loop); data track (`data/nhanes/nhanes_ckd_derived.csv`, `NHANES_PROTOCOL.md`)
-**Note**: Phase 5 drift design names UCI-857 as the incoming batch — disqualified 2026-10-10; Phase 5 needs replanning against the Postgres prediction log when reached.
-
-**Plans:** 3 plans
-**Wave 1**
-
-- [x] 07-01-PLAN.md — Tracer: native pipeline plus quarantine gate plus LR Claim-2 run plus Wave 0 training tests (wave 1, complete 2026-10-15: LR holdout roc_auc=0.8246, challenger v10, suite 50 passed)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 07-02-PLAN.md — 9-config CV expansion plus paired harmonized comparison plus Staging plus human promotion gate (wave 2, COMPLETE 2026-10-15: GB winner holdout 0.8265, paired qualifies=True, gate APPROVED → v11 Production / v9 Archived intact, pin "11" for 07-03, suite 59 passed post-promotion)
-- [x] 07-03-PLAN.md — Native schemas plus v2 loader slot plus /v2 routes plus v2 log table plus v2 tests (wave 2, COMPLETE 2026-10-15: /v2 serves version-stamped native predictions with isolated logging, unconfigured 503 fail-closed, Rule 1 native-artifact-path fix proven live against v11, suite 74 passed; cutover is deploy-time MODEL_VERSION_V2=11)
-
-### Tasks
-
-- [ ] Build NHANES-native training set (~14 mapped + demographic/comorbidity features; quarantine held; no 24-field forcing)
-- [x] Fit new pipeline on NHANES train split; train 9 configs with stratified 5-fold CV + confidence intervals
-- [x] Register challenger versions; promote iff beats v9 champion on the locked rule (v11 Production 2026-10-15 on APPROVE; v9 Archived intact)
-- [x] Evolve API schema to serve the NHANES-native model (versioned; v9 keeps serving until promotion — /v2 live 2026-10-15, cutover is deploy-time pin flip)
-- [x] Write training + serving tests for the new schema (15-test v2 suite + v1 regression)

@@ -21,8 +21,10 @@ import io
 from contextlib import asynccontextmanager
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 
 from api import db, model_loader
 from api.schemas import (
@@ -35,6 +37,12 @@ from api.schemas import (
     NativeBatchItem,
     PredictionResponse,
 )
+from src.auth.auth import authenticate_user, create_user, get_user_by_email
+from src.auth.dependencies import get_current_user
+from src.auth.models import User
+from src.auth.schemas import Token, UserLogin, UserOut, UserRegister
+from src.auth.security import create_access_token
+from src.database import Base, get_db
 from src.preprocessing.preprocess import (
     LINEAGE_ID_COL,
     LINEAGE_ROW_COL,
@@ -102,6 +110,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Corvus CKD Prediction API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 def _require_log_store() -> None:
@@ -375,4 +391,64 @@ def model_info_v2():
         model_version=app.state.v2_model_version,
         run_id=app.state.v2_run_id,
         resolution=PINNED_RESOLUTION,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Auth routes (Phase 8-01)
+# ---------------------------------------------------------------------------
+
+@app.post("/auth/register", response_model=UserOut, status_code=201)
+def register(user_in: UserRegister, db: Session = Depends(get_db)):
+    """Register a new user (patient or doctor)."""
+    existing = get_user_by_email(db, user_in.email)
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="email already registered",
+        )
+    user = create_user(db, user_in)
+    if user is None:
+        raise HTTPException(
+            status_code=400,
+            detail="email already registered",
+        )
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
+
+
+@app.post("/auth/login", response_model=Token)
+def login(user_in: UserLogin, db: Session = Depends(get_db)):
+    """Authenticate with email + password, return JWT access token."""
+    user = authenticate_user(db, user_in.email, user_in.password)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token = create_access_token({"sub": str(user.id), "role": user.role})
+    return Token(access_token=access_token)
+
+
+@app.get("/auth/me", response_model=UserOut)
+def read_users_me(current_user: User = Depends(get_current_user)):
+    """Return the currently authenticated user's profile."""
+    if current_user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return UserOut(
+        id=current_user.id,
+        email=current_user.email,
+        role=current_user.role,
+        is_active=current_user.is_active,
+        created_at=current_user.created_at,
     )

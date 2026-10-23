@@ -31,7 +31,16 @@ python-multipart>=0.0.18
 # --- Testing ---
 pytest>=8.0
 
+# --- Auth (Phase 8) ---
+sqlalchemy>=2.0
+alembic>=1.13
+bcrypt>=4.1
+python-jose[cryptography]>=3.3
+PyJWT>=2.9
+
 # --- Later phases (uncomment as needed) ---
 # evidently>=0.4          # Phase 8: drift detection
 # apache-airflow>=2.8     # Phase 9: retraining orchestration
 # prometheus-client>=0.20 # Phase 7: monitoring
+
+black

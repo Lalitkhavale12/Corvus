@@ -1,18 +1,17 @@
 ---
 gsd_state_version: "1.0"
 status: unknown
-stopped_at: Completed 07-01-PLAN.md
-last_updated: "2026-10-15T15:07:50Z"
-state_head: 427b717
+stopped_at: Phase 8 planning complete, ready to build Phase 8-01
+last_updated: "2026-10-23"
+state_head: 51dd12b
 progress:
-  total_phases: 7
-  completed_phases: 0
+  total_phases: 8
+  completed_phases: 4
   total_plans: 12
   completed_plans: 10
-  percent: 0
-current_phase_name: NHANES Native Retrain
+  percent: 50
+current_phase_name: Web Platform + Authentication
 ---
-
 # Project State — Corvus
 
 > Auto-maintained by GSD workflow
@@ -20,19 +19,20 @@ current_phase_name: NHANES Native Retrain
 ## Current Position
 
 - **Milestone**: M1 (Initial Build)
-- **Active Phase**: Phase 7 — NHANES Native Retrain (07-01 + 07-02 + 07-03 COMPLETE 2026-10-15 — /v2 serves v11-capable slot, pin flip is deploy-time)
-- **Next Phase**: Production cutover (MODEL_VERSION_V2=11) + Phase 4/5/6 pending
-- **Blocked**: Nothing — Phase 7 complete
+- **Active Phase**: Phase 8 — Web Platform + Authentication (Phase 8-01 planning ready)
+- **Next Phase**: Build Phase 8-01 (backend auth foundation)
+- **Blocked**: Nothing
 
 ## Phase Status
 
 | Phase | Status | Last Updated |
 |---|---|---|
 | 1 — Data Pipeline | ✅ Complete | 2026-09-19 |
-| 2 — Model Training | ✅ Implementation Complete (02-01 tracer + 02-02 expansion done) | 2026-09-21 |
-| 3 — API + Containers | ✅ Complete (03-01, 03-02, 03-03, 03-04 done 2026-09-23) | 2026-09-23 |
+| 2 — Model Training | ✅ Complete | 2026-09-21 |
+| 3 — API + Containers | ✅ Complete | 2026-09-23 |
+| 7 — NHANES Native Retrain | ✅ Complete | 2026-10-15 |
+| 8 — Web Platform + Authentication | 🔄 In Progress | 2026-10-23 |
 | 4 — CI/CD + Monitoring | ⬜ Not Started | — |
-| 7 — NHANES Native Retrain | ✅ Complete (07-01 + 07-02 + 07-03 done 2026-10-15: v11 Production served on /v2-capable slot, v1 untouched) | 2026-10-15 |
 | 5 — Drift + Retraining | ⬜ Not Started | — |
 | 6 — Visualization + Polish | ⬜ Not Started | — |
 
@@ -78,63 +78,17 @@ current_phase_name: NHANES Native Retrain
 - ✅ Decisions: container-synced mlruns copy with /mlruns-rebased URIs (host pristine, v9 identity intact); mlflow --allowed-hosts mlflow:*; api mounts the copy at /mlruns
 - ✅ Requirements FR-5.1, FR-5.2, FR-4.1 delivered — Phase 3 COMPLETE
 
-### Phase 3 plan 03-03 (batch expansion, complete 2026-09-23)
+## Phase 8: Web Platform + Authentication (In Progress)
 
-- ✅ Hardened POST /batch_predict: MAX_BATCH_BYTES 5000000 + MAX_BATCH_ROWS 10000 with 413 before full parse, lineage/target dropped via imported constants, missing-column 422, extras warn-ignored (T-03-08), all-or-nothing with first-offender row number, single commit
-- ✅ BatchPredictionItem/BatchPredictionResponse schemas (row, prediction, probability, count, model_version 9)
-- ✅ D-04 full record: per-row created_at stamp + column default; every logged row holds 24 fields + outcome + version + timestamp
-- ✅ 7 new tests (valid batch, row-3 zero-write rejection, missing column, 413 oversize, extras ignored, full-record shape, batch 503); API file 19 passed, full suite 45 passed, 0 failed
-- ✅ db.py review clean: no raw SQL, retry only around create_tables, DATABASE_URL value never logged
-- ✅ Requirements FR-4.1, FR-4.2, FR-4.3, FR-5.2 delivered
-- ✅ Decisions: warn-ignore over 422 for extras; per-row created_at stamp; single shared commit call site (not 2 per-route)
+### Planned Sub-Phases
 
-### Phase 3 plan 03-02 (tracer slice, complete 2026-09-23)
-
-- ✅ api package: schemas (24-field CKDRequest + versioned responses), pinned loader (models:/corvus-ckd/9 + pipeline width assert), db layer (PredictionLog + 3-attempt create_tables), FastAPI app (lifespan pin + /predict + /batch_predict + /health + /model_info)
-- ✅ Live probe: load_serving_artifacts(9) against real registry → run_id 10ac3e5e, n_features_in_=24
-- ✅ Fail-closed proven: 422 on bad input, 503 naming DATABASE_URL when unset, RuntimeError after 3 retries when unreachable
-- ✅ 12 API tests green (mocked loader/session, no real mlruns/Postgres); full suite 38 passed, 0 failed
-- ✅ Requirements FR-4.1, FR-4.2, FR-4.3, FR-4.4 delivered (FR-4.4 with recorded D-02 startup-pin deviation)
-- ✅ Decisions: fail-closed 503 over silent serving; /batch_predict pulled into 03-02 so all 8 stubs go green; model_info follows plan contract (model_name/model_version/run_id/resolution); sequential commits stay on main
-
-### Phase 3 plan 03-01 (foundation, complete 2026-09-23)
-
-- ✅ corvus-ckd v9 Staging → Production via scripts/promote_production.py (D-01 first act, PROMOTED line + registry audit trail)
-- ✅ Serving deps installed + pinned: psycopg2-binary 2.9.13, streamlit 1.64.0, python-multipart 0.0.32 (Task 1 human-approved)
-- ✅ config.yaml api.* (model_name, pinned_version 9, tracking_uri) + db.* (database_url "") sections via load_config
-- ✅ Wave 0 fixtures (synthetic_ckd_request, synthetic_batch_csv) + 8 red API stubs (red by design: collection error on api.app until 03-02)
-- ✅ 26 pytest tests green excluding test_api.py; requirements FR-4.4, FR-4.3 foundation delivered
-- ✅ Decisions: promotion script hardcodes v9 (future swaps via config pin + new run); env-over-static config fallback; sys.path bootstrap for plain-script runs
-
-### Phase 2 plan 02-02 (9-config expansion, complete 2026-09-21)
-
-- ✅ 6 classical configs in train.py (LR untouched, DT/RF/GB/XGB/LGBM seeded 42, LGBM verbosity=-1, one rationale each)
-- ✅ train_mlp.py: 3 activation runs reusing train.py shapes (hidden (50,), max_iter 500, seeded, no early stopping)
-- ✅ run_id-linked winner→version resolution (tracer latest-heuristic broke at 9 versions)
-- ✅ Canonical pass: 9 runs × (5 metrics + pipeline + model), corvus-ckd v1–v9, winner mlp-relu v9 Staging, 8 Archived, 0 Production
-- ✅ 26 pytest tests green; requirements FR-2.1, FR-2.5, FR-3.1, FR-3.2, FR-3.3 delivered
-- ✅ Decisions: ModelVersion.run_id linkage for winner resolution, mlp reuses train helpers, reset gitignored mlruns for canonical pass
-
-### Phase 2 plan 02-01 (tracer slice, complete 2026-09-21)
-
-- ✅ LR trains end-to-end from train_raw.csv into one Claim 2 MLflow run (roc_auc=1.0, 5 metrics)
-- ✅ evaluate.py strict-max ROC-AUC ranking; winner corvus-ckd v1 in Staging, no Production
-- ✅ 24 pytest tests green; Wave 0 red-to-green
-- ✅ Decisions: MLflow 3.x logged-model linkage assertions, MLFLOW_ALLOW_FILE_STORE opt-in, search_model_versions for history
-
-### Phase 1 (complete, verified 2026-09-19)
-
-- ✅ Raw data ingestion with UCI CKD quirk handling
-- ✅ Leak-safe preprocessing (split-first, fit on train only)
-- ✅ Single sklearn Pipeline artifact (Patent Claim 2 — object created)
-- ✅ Config-driven pipeline (`config/config.yaml`)
-- ✅ Centralized Loguru logging
-- ✅ GX 1.x raw-CSV validation gate (`data/validation/ckd_suite.json` + `validate.py`, fail-fast in `preprocess.main()`)
-- ✅ Read-only EDA notebook (`notebooks/01_eda_ckd.ipynb`, 11 cells, outputs cleared, 5 figures in `reports/figures/`)
-- ✅ 13 pytest tests passing (4 pre-existing + 9 new: ingestion quirks, save_outputs isolation, validation gate)
-- ✅ Phase verified 14/14 must-haves (`.planning/phases/phase-1/01-VERIFICATION.md`)
-- ✅ Codebase mapped (`.planning/codebase/`)
-- ✅ Project initialized (`.planning/`)
+| Plan | Name | Status |
+|---|---|---|
+| 8-01 | Backend Auth Foundation (SQLAlchemy, JWT, register/login) | 🔄 Ready to build |
+| 8-02 | User Profiles & Role-Based Access | ⬜ Not Started |
+| 8-03 | Authenticated Predictions & History | ⬜ Not Started |
+| 8-04 | React Frontend Website | ⬜ Not Started |
+| 8-05 | Docker Compose + Local Deployment | ⬜ Not Started |
 
 ## Decisions Log
 
@@ -143,7 +97,7 @@ current_phase_name: NHANES Native Retrain
 | D1 | UCI-336 as primary dataset | 2026-09-19 | Real clinical data with documented provenance |
 | D2 | UCI-857 for drift simulation | 2026-09-19 | Independent cohort, confirmed valid |
 | D3 | Kubernetes cut | 2026-09-19 | Docker Compose sufficient for academic demo |
-| D4 | React → Streamlit | 2026-09-19 | Single Python file, no frontend build |
+| D4 | Streamlit → React + Vite | 2026-10-23 | Multi-user website requires proper frontend framework |
 | D5 | Synthetic datasets rejected | 2026-09-19 | Leaky labels, circular labeling |
 | D6 | Abu Dhabi EHR deferred | 2026-09-19 | Different modeling paradigm (survival analysis) |
 | D7 | Quarantine gate on projected training frame | 2026-10-15 | Raw derived CSV carries the 11 label-source cols by design; gate the 16+5 projection before split (07-01 deviation) |
@@ -154,6 +108,9 @@ current_phase_name: NHANES Native Retrain
 | D12 | APPROVE v11 executed: v11 Production, v9 Archived intact, api.v2_pinned_version="11" for 07-03 | 2026-10-15 | Explicit human approval crossed the D-04 boundary; archive_existing_versions transitioned v9 (never deleted); hard-cutover pin handed to serving |
 | D13 | Config pin stays empty-string; cutover is deploy-time MODEL_VERSION_V2=11 | 2026-10-15 | Setting "11" in config.yaml would break test_api.py hermeticity (lifespan hits real registry); live v11 load probe proves the flip safe whenever deployed (07-03 decision) |
 | D14 | V2 loader reads preprocessing_pipeline_nhanes.joblib (Rule 1 fix) | 2026-10-15 | Plan-literal v1 artifact path raised MlflowException against real v11; registry listing proved the native filename; drift-pinned by unit test (07-03 deviation) |
+| D15 | Email/password auth only for MVP; Google OAuth deferred | 2026-10-23 | Simpler implementation; OAuth can be added later |
+| D16 | Doctor self-registration with no admin gate | 2026-10-23 | Faster onboarding; access control can be tightened later |
+| D17 | React + Vite + Tailwind for frontend website | 2026-10-23 | Industry standard, fast dev, responsive design, easy to learn |
 
 ## Open Questions
 
@@ -162,10 +119,10 @@ current_phase_name: NHANES Native Retrain
 
 ## Context for Next Session
 
-Start with `/gsd-plan-phase 2` to begin model training (Phase 1 is complete and verified).
+Start with Phase 8-01: Backend Auth Foundation. Create SQLAlchemy models, Alembic migrations, JWT auth, register/login endpoints, and protected route dependencies. Then build React frontend.
 
 ## Session
 
-**Last session:** 2026-10-15T21:30Z
-**Stopped at:** 07-03 COMPLETE (v2 serving live-capable, 74 passed, Phase 7 complete); production cutover is deploy-time MODEL_VERSION_V2=11
-**Resume file:** .planning/phases/07-nhanes-native-retrain/07-03-SUMMARY.md
+**Last session:** 2026-10-23
+**Stopped at:** Phase 8 planning complete; PROJECT.md, ROADMAP.md, STATE.md updated
+**Resume file:** .planning/phases/08-web-platform-auth/
