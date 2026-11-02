@@ -1,0 +1,14 @@
+artifact_uri: /mlruns/827729238371926344/763555dad2d54cf99c5fc1fc885141f5/artifacts
+end_time: 1792049219795
+entry_point_name: ''
+experiment_id: '827729238371926344'
+lifecycle_stage: active
+run_id: 763555dad2d54cf99c5fc1fc885141f5
+run_name: native-logistic-regression
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1792049208033
+status: 3
+tags: []
+user_id: Lalit

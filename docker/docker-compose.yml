@@ -43,6 +43,8 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql+psycopg2://corvus:corvus@db:5432/corvus
       MLFLOW_TRACKING_URI: http://mlflow:5000
@@ -51,6 +53,12 @@ services:
       # Container-readable registry copy (see OQ2 note): the loader resolves
       # models:/ + runs:/ artifact URIs to /mlruns paths inside this box.
       - ./.mlruns.container:/mlruns
+      # Dev convenience: source comes from the repo, so api/ or src/ edits
+      # apply on restart instead of a 1.8 GB pip-layer rebuild. Harmless
+      # once the image is rebuilt (identical bytes shadowed, read-only).
+      - ../api:/app/api:ro
+      - ../src:/app/src:ro
+      - ../config:/app/config:ro
     depends_on:
       db:
         condition: service_healthy
@@ -61,6 +69,8 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - "5000:5000"
+    env_file:
+      - .env
     volumes:
       - ./.mlruns.container:/mlruns
     command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri file:///mlruns --default-artifact-root file:///mlruns --allowed-hosts "mlflow:*,localhost:*,127.0.0.1:*"
@@ -72,11 +82,48 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.frontend
+      args:
+        - VITE_API_URL=http://localhost:8000
     ports:
       - "3000:80"
     depends_on:
       api:
         condition: service_started
 
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-rules:/etc/prometheus/rules:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    depends_on:
+      api:
+        condition: service_started
+      mlflow:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: corvus-grafana
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+
 volumes:
   pgdata:
+  prometheus-data:
+  grafana-data:

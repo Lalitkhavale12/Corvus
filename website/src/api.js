@@ -22,6 +22,12 @@ export const authAPI = {
   register: (data) => api.post("/auth/register", data),
   login: (data) => api.post("/auth/login", data),
   me: () => api.get("/auth/me"),
+  // Phase 8-02: profile + patient-doctor mapping endpoints
+  getProfile: () => api.get("/auth/profile"),
+  createProfile: (data) => api.post("/auth/profile", data),
+  getDoctorPatients: () => api.get("/doctors/patients"),
+  assignPatient: (patientEmail) =>
+    api.post("/doctors/patients/assign", { patient_email: patientEmail }),
 };
 
 export const predictionAPI = {
@@ -35,6 +41,9 @@ export const predictionAPI = {
   },
   modelInfo: () => api.get("/v2/model_info"),
   health: () => api.get("/health"),
+  // Phase 8-03: prediction history endpoints
+  getHistory: () => api.get("/auth/predictions"),
+  getPrediction: (id) => api.get(`/auth/predictions/${id}`),
 };
 
 export default api;

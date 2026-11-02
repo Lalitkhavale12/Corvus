@@ -12,7 +12,13 @@ export function AuthProvider({ children }) {
     if (token) {
       authAPI
         .me()
-        .then((res) => setUser(res.data))
+        .then((res) => {
+          setUser(res.data);
+          return authAPI.getProfile();
+        })
+        .then((res) => {
+          setUser((prev) => ({ ...prev, profile: res.data }));
+        })
         .catch(() => {
           localStorage.removeItem("token");
           setUser(null);
@@ -23,9 +29,17 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = (token) => {
+  const login = async (token) => {
     localStorage.setItem("token", token);
-    authAPI.me().then((res) => setUser(res.data));
+    const res = await authAPI.me();
+    setUser(res.data);
+    try {
+      const profile = await authAPI.getProfile();
+      setUser((prev) => ({ ...prev, profile: profile.data }));
+    } catch {
+      // No profile yet — user will be prompted to create one
+    }
+    return res.data;
   };
 
   const logout = () => {

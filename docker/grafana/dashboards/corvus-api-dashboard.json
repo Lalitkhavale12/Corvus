@@ -1,0 +1,318 @@
+{
+  "uid": "corvus-api",
+  "title": "Corvus CKD Prediction API Dashboard",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Total Predictions",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(corvus_predictions_total)",
+          "legendFormat": "{{model_version}} - {{prediction}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 10},
+              {"color": "red", "value": 100}
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "values": ["last"],
+          "calcs": ["last"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Error Rate (%)",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(rate(corvus_http_requests_total{status_code=~\"5..\"}[5m])) / sum(rate(corvus_http_requests_total[5m])) * 100",
+          "legendFormat": "Error Rate",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 1},
+              {"color": "red", "value": 5}
+            ]
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "values": ["last"],
+            "calcs": ["last"],
+            "fields": ""
+          },
+          "orientation": "auto",
+          "textMode": "value",
+          "colorMode": "value",
+          "graphMode": "none",
+          "justifyMode": "center"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "values": ["last"],
+          "calcs": ["last"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Active Users",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "corvus_users_total",
+          "legendFormat": "Total Users",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 10},
+              {"color": "red", "value": 50}
+            ]
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "values": ["last"],
+            "calcs": ["last"],
+            "fields": ""
+          },
+          "orientation": "auto",
+          "textMode": "value",
+          "colorMode": "value",
+          "graphMode": "none",
+          "justifyMode": "center"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "values": ["last"],
+          "calcs": ["last"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Request Rate by Status",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [
+        {
+          "expr": "sum(rate(corvus_http_requests_total[5m])) by (status_code)",
+          "legendFormat": "{{status_code}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "show": true,
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {"mode": "multi"}
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Request Duration (95th percentile)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(corvus_http_request_duration_seconds_bucket[5m])) by (method, endpoint)",
+          "legendFormat": "{{method}} {{endpoint}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "show": true,
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {"mode": "multi"}
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Active DB Connections",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 12},
+      "targets": [
+        {
+          "expr": "corvus_db_connections_active",
+          "legendFormat": "Active Connections",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 50},
+              {"color": "red", "value": 80}
+            ]
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "values": ["last"],
+            "calcs": ["last"],
+            "fields": ""
+          },
+          "orientation": "auto",
+          "textMode": "value",
+          "colorMode": "value",
+          "graphMode": "none",
+          "justifyMode": "center"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "values": ["last"],
+          "calcs": ["last"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Prediction Probability Distribution",
+      "gridPos": {"h": 8, "w": 12, "x": 6, "y": 12},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, rate(corvus_prediction_probability_bucket[5m]))",
+          "legendFormat": "Median Probability",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.9, rate(corvus_prediction_probability_bucket[5m]))",
+          "legendFormat": "90th Percentile",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.1, rate(corvus_prediction_probability_bucket[5m]))",
+          "legendFormat": "10th Percentile",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "show": true,
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "tooltip": {"mode": "multi"}
+      }
+    },
+    {
+      "type": "stat",
+      "title": "API Status",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 12},
+      "targets": [
+        {
+          "expr": "up{job=\"corvus-api\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "green", "value": 1}
+            ]
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "values": ["last"],
+            "calcs": ["last"],
+            "fields": ""
+          },
+          "orientation": "auto",
+          "textMode": "value",
+          "colorMode": "value",
+          "graphMode": "none",
+          "justifyMode": "center"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "values": ["last"],
+          "calcs": ["last"],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center"
+      }
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}

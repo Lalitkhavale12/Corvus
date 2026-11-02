@@ -1,0 +1,9 @@
+artifact_location: /mlruns/827729238371926344
+creation_time: 1792049207540
+effective_trace_archival_retention: null
+experiment_id: '827729238371926344'
+last_update_time: 1792049207540
+lifecycle_stage: active
+name: corvus-ckd-nhanes
+trace_location: null
+workspace: default

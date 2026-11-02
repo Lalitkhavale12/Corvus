@@ -1,0 +1,79 @@
+# Prometheus alerting rules for Corvus CKD Prediction API (Phase 4)
+groups:
+  - name: corvus-api.rules
+    rules:
+      - alert: APIHighErrorRate
+        expr: >
+          sum(rate(corvus_http_requests_total{status_code=~"5.."}[5m])) 
+          / sum(rate(corvus_http_requests_total[5m])) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate on Corvus API"
+          description: "Error rate is above 5% for the last 2 minutes."
+          runbook_url: "https://docs.corvus.io/runbooks/high-error-rate"
+
+      - alert: APIHighLatency
+        expr: >
+          histogram_quantile(0.95, 
+            rate(corvus_http_request_duration_seconds_bucket[5m])) > 2
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency on Corvus API"
+          description: "95th percentile response time is above 2 seconds for the last 2 minutes."
+          runbook_url: "https://docs.corvus.io/runbooks/high-latency"
+
+      - alert: APIDown
+        expr: up{job="corvus-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Corvus API is down"
+          description: "Corvus API has been down for more than 1 minute."
+          runbook_url: "https://docs.corvus.io/runbooks/api-down"
+
+      - alert: HighPredictionVolume
+        expr: rate(corvus_predictions_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "High prediction volume"
+          description: "Prediction volume is above 100 predictions per 5 minutes."
+          runbook_url: "https://docs.corvus.io/runbooks/high-prediction-volume"
+
+      - alert: LowPredictionProbability
+        expr: >
+          histogram_quantile(0.5, 
+            rate(corvus_prediction_probability_bucket[5m])) < 0.3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low prediction probability detected"
+          description: "Median prediction probability has dropped below 0.3, indicating potential model drift."
+          runbook_url: "https://docs.corvus.io/runbooks/low-prediction-probability"
+
+      - alert: DatabaseConnectionsHigh
+        expr: corvus_db_connections_active > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connection count"
+          description: "Database connections are above 80 for the last 5 minutes."
+          runbook_url: "https://docs.corvus.io/runbooks/high-db-connections"
+
+      - alert: NoNewUsers
+        expr: corvus_users_total == 0
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "No registered users"
+          description: "No users have registered in the Corvus system."
+          runbook_url: "https://docs.corvus.io/runbooks/no-users"

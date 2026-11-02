@@ -1,0 +1,13 @@
+# Grafana dashboard provisioning (Phase 4)
+apiVersion: 1
+
+providers:
+  - name: 'Corvus Dashboards'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true

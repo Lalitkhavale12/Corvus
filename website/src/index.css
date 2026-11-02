@@ -1,3 +1,84 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-surface text-on-surface font-sans antialiased;
+  }
+
+  :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-primary-container;
+  }
+}
+
+@layer utilities {
+  /* Clinical data columns must not jitter when values change. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    background: #c4c5d5;
+    border-radius: 4px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* ── CKD / medical theme backgrounds ── */
+
+  /* Subtle kidney silhouette pattern (very light, for page backgrounds) */
+  .bg-kidney-pattern {
+    background-image: url("data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 64 64' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2300288e' fill-opacity='0.04'%3E%3Cpath d='M22 12c-2.21 0-4.17 1.17-5.36 3.06C15.27 16.88 14 19.14 14 22c0 3.31 2.01 6.12 4.94 7.44C20.19 31.06 22 33.47 22 36c0 2.53 1.81 4.94 4.36 5.94C27.83 42.83 30 41.02 30 38c0-2.53-2.17-4.94-5.36-5.94C23.81 31.06 22 28.25 22 22c0-2.86-1.27-5.12-3.27-7.13C18.83 13.17 20.79 12 22 12ZM34 12c2.21 0 4.17 1.17 5.36 3.06C40.73 16.88 42 19.14 42 22c0 3.31-2.01 6.12-4.94 7.44C35.81 31.06 34 33.47 34 36c0 2.53-1.81 4.94-4.36 5.94C28.17 42.83 26 41.02 26 38c0-2.53 2.17-4.94 5.36-5.94C32.19 31.06 34 28.25 34 22c0-2.86 1.27-5.12 3.27-7.13C37.17 13.17 35.21 12 34 12Z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* Subtle nephron/tubule pattern for card accents */
+  .bg-nephron-pattern {
+    background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23006c4a' stroke-opacity='0.06' stroke-width='1'%3E%3Cpath d='M10 10Q20 5 30 10T10 10ZM10 20Q20 15 30 20T10 20ZM10 30Q20 25 30 30T10 30Z'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* Medical cross pattern for subtle header accents */
+  .bg-medical-cross {
+    background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%2300288e' fill-opacity='0.03'%3E%3Crect x='11' y='2' width='2' height='6'/%3E%3Crect x='11' y='16' width='2' height='6'/%3E%3Crect x='2' y='11' width='6' height='2'/%3E%3Crect x='16' y='11' width='6' height='2'/%3E%3C/g%3E%3C/svg%3E");
+  }
+
+  /* CKD-themed gradient: deep nephrology blue to medical teal */
+  .bg-ckd-gradient {
+    background: linear-gradient(135deg, #00288e 0%, #006c4a 60%, #82f5c1 100%);
+  }
+
+  /* Subtle blue-to-teal gradient for login/register cards */
+  .bg-ckd-soft-gradient {
+    background: linear-gradient(180deg, #f8f9ff 0%, #eef3ff 50%, #e6f2ff 100%);
+  }
+
+  /* Glassmorphism card with subtle border */
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-sm border border-white/40;
+  }
+
+  /* Kidney accent badge */
+  .kidney-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-secondary bg-secondary-container border border-secondary/20;
+  }
+
+  /* Subtle section divider with medical motif */
+  .divider-medical {
+    @apply relative my-6;
+  }
+  .divider-medical::before {
+    content: "";
+    @apply absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-outline-variant to-transparent;
+  }
+}

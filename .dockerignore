@@ -13,3 +13,11 @@ airflow/
 __pycache__/
 .pytest_cache/
 *.pyc
+
+# Frontend build artifacts: the frontend image runs npm install + build
+# itself, and the registry copy is mounted as a volume. Without these the
+# context carries ~9k node_modules files on every build.
+website/node_modules/
+website/dist/
+website/.vite/
+docker/.mlruns.container/

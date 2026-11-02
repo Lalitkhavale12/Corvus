@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Activity, CheckCircle2, Stethoscope, UserRound } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { authAPI } from "../api";
+import { CorvusMark } from "../components/ClinicalShell";
+import { Button, Card, Field, Input, Spinner } from "../components/ui";
 
 export function Register() {
   const [email, setEmail] = useState("");
@@ -12,15 +15,15 @@ export function Register() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
       await authAPI.register({ email, password, role });
       const res = await authAPI.login({ email, password });
-      login(res.data.access_token);
-      navigate("/dashboard");
+      await login(res.data.access_token);
+      navigate(role === "doctor" ? "/doctor-dashboard" : "/dashboard", { replace: true });
     } catch (err) {
       setError(err.response?.data?.detail || "Registration failed");
     } finally {
@@ -29,89 +32,99 @@ export function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Already have an account?{" "}
-            <Link
-              to="/login"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              Sign in
-            </Link>
-          </p>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow sm:rounded-lg space-y-6">
+    <div className="flex min-h-screen flex-col bg-ckd-soft-gradient bg-nephron-pattern">
+      <header className="border-b border-outline-variant bg-surface-lowest/90 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <Link to="/login" className="flex items-center gap-2.5">
+            <span className="flex size-8 items-center justify-center rounded bg-primary-container text-on-primary">
+              <CorvusMark className="size-5" />
+            </span>
             <div>
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+              <p className="text-xs font-bold uppercase tracking-wider text-primary">Corvus Health</p>
+              <p className="text-[10px] font-mono uppercase tracking-wider text-on-surface-variant">
+                Enrollment
+              </p>
             </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
+          </Link>
+          <span className="kidney-badge">
+            <span className="size-3.5 text-secondary">🫀</span>
+            CKD Console
+          </span>
+          <Link to="/login" className="text-[11px] font-medium text-primary hover:underline">
+            Back to sign in
+          </Link>
+          <Link to="/login" className="text-[11px] font-medium text-primary hover:underline">
+            Back to sign in
+          </Link>
+        </div>
+      </header>
+
+      <main className="flex flex-1 items-center justify-center px-4 py-8">
+        <Card className="w-full max-w-md overflow-hidden shadow-sm">
+          <div className="border-b border-outline-variant px-6 py-6 sm:px-8">
+            <h1 className="text-xl font-bold tracking-tight text-on-surface">Create account</h1>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              Self-registration is enabled for both roles. No admin gate.
+            </p>
+          </div>
+
+          <form onSubmit={submit} className="space-y-4 px-6 py-6 sm:px-8">
+            <Field label="Email Address" htmlFor="email">
+              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </Field>
+
+            <Field label="Password" htmlFor="password">
+              <Input
                 id="password"
-                name="password"
                 type="password"
+                minLength={6}
                 required
-                minLength="6"
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Register as
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              >
-                <option value="patient">Patient</option>
-                <option value="doctor">Doctor</option>
-              </select>
-            </div>
-          </div>
+            </Field>
 
-          {error && (
-            <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+            <Field label="Role" htmlFor="role">
+              <div className="grid grid-cols-2 gap-1 rounded border border-outline-variant bg-surface-low p-1">
+                <button
+                  type="button"
+                  onClick={() => setRole("patient")}
+                  className={`flex items-center justify-center gap-1.5 rounded py-1.5 text-xs font-semibold ${
+                    role === "patient" ? "bg-surface-lowest text-primary shadow-sm" : "text-on-surface-variant"
+                  }`}
+                >
+                  <UserRound className="size-3.5" /> Patient
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole("doctor")}
+                  className={`flex items-center justify-center gap-1.5 rounded py-1.5 text-xs font-semibold ${
+                    role === "doctor" ? "bg-surface-lowest text-primary shadow-sm" : "text-on-surface-variant"
+                  }`}
+                >
+                  <Stethoscope className="size-3.5" /> Doctor
+                </button>
+              </div>
+            </Field>
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {loading ? "Creating account..." : "Create account"}
-            </button>
-          </div>
-        </form>
-      </div>
+            {error && (
+              <div className="rounded border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#991B1B]">
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" size="lg" className="w-full" disabled={loading}>
+              {loading ? <Spinner /> : <Activity className="size-4" />}
+              {loading ? "Creating account…" : "Create account"}
+            </Button>
+
+            <div className="flex items-center gap-2 text-[11px] text-on-surface-variant">
+              <CheckCircle2 className="size-3.5 text-secondary" />
+              Email/password only • JWT session • CKD scope
+            </div>
+          </form>
+        </Card>
+      </main>
     </div>
   );
 }
