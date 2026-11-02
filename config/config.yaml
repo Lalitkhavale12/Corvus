@@ -18,14 +18,21 @@ data:
   nhanes_numeric_cols: ["RIDAGEYR", "INDFMPIR", "LBDSBUSI", "LBDSGLSI",
     "LBXSNASI", "LBXSKSI", "LBDSCASI", "LBDSPHSI",
     "LBXHGB", "LBXHCT", "LBXWBCSI", "LBXRBCSI",
-    "LBXGH", "BMXBMI", "BPXOSY1", "BPXODI1"]
-  nhanes_categorical_cols: ["RIAGENDR", "RIDRETH1", "DMDEDUC2", "DIQ010", "MCQ035"]
+    "LBXGH", "BMXBMI", "BPXOSY1", "BPXODI1",
+    "LBXRDW", "LBDSUASI", "LBXSAL", "LBXSGTSI"]
+  # RIDRETH1 (US race categories) and MCQ035 (US kidney-history item, 81.6%
+  # missing) dropped as unfillable outside NHANES; measured cost is inside
+  # noise (dev dROC -0.0015, holdout dROC -0.0031).
+  nhanes_categorical_cols: ["RIAGENDR", "DMDEDUC2", "DIQ010"]
   nhanes_quarantine_cols: ["eGFR", "URXUMA", "URXUMS", "URXUCR", "URXCRS", "URDACT",
     "URDUMALC", "URDUCRLC", "LBXSCR", "LBDSCRSI", "ACR"]
   nhanes_holdout_size: 0.2
   nhanes_random_state: 42
   nhanes_cv_folds: 5
   nhanes_bootstrap_reps: 2000
+  # Deployed cut-off is chosen on out-of-fold dev probabilities to reach this
+  # recall; 0.5 is clinically unusable here (misses ~2/3 of true cases).
+  nhanes_target_recall: 0.80
 
 validation:
   min_rows: 300
@@ -68,6 +75,6 @@ db:
   database_url: ""
 
 auth:
-  secret_key: "corvus-dev-secret-change-in-production"
+  secret_key: "${SECRET_KEY:corvus-dev-secret-change-in-production}"
   algorithm: "HS256"
   access_token_expire_minutes: 30

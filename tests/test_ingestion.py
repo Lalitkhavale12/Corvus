@@ -4,6 +4,7 @@ nothing here reads the real raw file. Quirk normalization is asserted through
 the real loader and summarize functions — the quirk-handling logic itself
 is never duplicated in this file.
 """
+
 import pandas as pd
 import pytest
 import yaml
@@ -61,7 +62,12 @@ def test_summarize_shape_sorted_and_bounded():
         }
     )
     summary = summarize(df)
-    assert list(summary.columns) == ["dtype", "missing_count", "missing_pct", "n_unique"]
+    assert list(summary.columns) == [
+        "dtype",
+        "missing_count",
+        "missing_pct",
+        "n_unique",
+    ]
     assert summary.loc["a", "missing_pct"] == 50.0
     assert summary.loc["b", "missing_pct"] == 25.0
     assert summary.loc["c", "missing_pct"] == 0.0

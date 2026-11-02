@@ -3,14 +3,38 @@ Validation-gate tests for Phase 1. All frames are synthetic in-memory builds
 covering the suite contract (label domain, target presence, row-count range,
 no exact duplicates); the real raw file is never touched.
 """
+
 import pandas as pd
 
 from src.validation.validate import run_raw_validation
 
 ALL_COLUMNS = [
-    "age", "al", "ane", "appet", "ba", "bgr", "bp", "bu", "cad",
-    "classification", "dm", "hemo", "htn", "id", "pc", "pcc", "pcv",
-    "pe", "pot", "rbc", "rc", "sc", "sg", "sod", "su", "wc",
+    "age",
+    "al",
+    "ane",
+    "appet",
+    "ba",
+    "bgr",
+    "bp",
+    "bu",
+    "cad",
+    "classification",
+    "dm",
+    "hemo",
+    "htn",
+    "id",
+    "pc",
+    "pcc",
+    "pcv",
+    "pe",
+    "pot",
+    "rbc",
+    "rc",
+    "sc",
+    "sg",
+    "sod",
+    "su",
+    "wc",
 ]
 CATEGORICAL_like = ["rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane"]
 

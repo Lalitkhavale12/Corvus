@@ -3,6 +3,7 @@
 Tracer slice: logistic-regression entry; plan 02-02 extends the
 all-configs test to the full 9-config slate (D-01).
 """
+
 import mlflow
 import pandas as pd
 
@@ -32,7 +33,11 @@ def test_mlp_activations_valid():
     # MLP slate: 3 runs differing only in activation (D-01/D-04/D-05).
     from src.training import train_mlp as mlp_mod
 
-    assert mlp_mod.ACTIVATIONS == {"sigmoid": "logistic", "tanh": "tanh", "relu": "relu"}
+    assert mlp_mod.ACTIVATIONS == {
+        "sigmoid": "logistic",
+        "tanh": "tanh",
+        "relu": "relu",
+    }
     for name in mlp_mod.ACTIVATIONS:
         est = mlp_mod.build_estimator(name)
         assert type(est).__name__ == "MLPClassifier"

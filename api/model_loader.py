@@ -12,6 +12,7 @@ request — model swaps need restarts.
 
 from __future__ import annotations
 
+import json
 import os
 
 # MLflow 3.x file store is maintenance-mode-gated: opt in explicitly since
@@ -23,6 +24,7 @@ from pathlib import Path
 import joblib
 import mlflow
 import pandas as pd
+from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
 
 from src.preprocessing.preprocess import get_column_lists
@@ -37,6 +39,10 @@ PIPELINE_ARTIFACT_PATH = "preprocessing/preprocessing_pipeline.joblib"
 # Native pipeline filename is distinct from v1 by 07-01 design; this must
 # track src.training.train_nhanes.NATIVE_PIPELINE_FILENAME (pinned by test).
 V2_PIPELINE_ARTIFACT_PATH = "preprocessing/preprocessing_pipeline_nhanes.joblib"
+# Must track src.training.train_nhanes.THRESHOLD_ARTIFACT_PATH/FILENAME.
+V2_THRESHOLD_ARTIFACT_PATH = "evaluation/nhanes_decision_threshold.json"
+# Cut-off used when a run predates threshold selection.
+DEFAULT_DECISION_THRESHOLD = 0.5
 
 # Literal-valid probe values (handle_unknown="ignore" in the pipeline, so
 # the assertion only checks width, never vocabulary membership).
@@ -183,3 +189,169 @@ def load_v2_artifacts(version: str):
         f"features={expected}"
     )
     return model, pipeline, run_id, str(version)
+
+
+def load_v2_threshold(version: str) -> float:
+    """Decision cut-off for v2, taken from the same run as the pipeline.
+
+    A cut-off only means anything against the estimator that produced the
+    probabilities, so it is resolved per version rather than configured
+    globally. Runs logged before threshold selection existed carry no
+    artifact; those fall back to 0.5.
+    """
+    if not version:
+        return DEFAULT_DECISION_THRESHOLD
+    cfg = load_config()
+    mlflow.set_tracking_uri(resolve_tracking_uri(cfg))
+    client = MlflowClient()
+    run_id = client.get_model_version(REGISTERED_MODEL_NAME, str(version)).run_id
+    try:
+        path = mlflow.artifacts.download_artifacts(
+            run_id=run_id, artifact_path=V2_THRESHOLD_ARTIFACT_PATH
+        )
+    except MlflowException:
+        log.warning(
+            f"No decision threshold artifact for version {version}; "
+            f"falling back to {DEFAULT_DECISION_THRESHOLD}"
+        )
+        return DEFAULT_DECISION_THRESHOLD
+    with open(path, encoding="utf-8") as handle:
+        return float(json.load(handle)["threshold"])
+
+
+# ---------------------------------------------------------------------------
+# Model Management (Phase 4 - Enhanced API)
+# ---------------------------------------------------------------------------
+
+def list_all_model_versions() -> list[dict]:
+    """List all registered model versions in MLflow registry."""
+    client = MlflowClient()
+    try:
+        versions = client.search_model_versions(f"name='{REGISTERED_MODEL_NAME}'")
+    except Exception as e:
+        log.warning(f"Failed to search model versions: {e}")
+        return []
+
+    results = []
+    for mv in versions:
+        try:
+            details = client.get_model_version(REGISTERED_MODEL_NAME, mv.version)
+            results.append({
+                "name": mv.name,
+                "version": mv.version,
+                "stage": mv.current_stage,
+                "run_id": mv.run_id,
+                "creation_timestamp": mv.creation_timestamp,
+                "last_updated_timestamp": mv.last_updated_timestamp,
+                "metrics": dict(mv.metadata.metrics) if mv.metadata and mv.metadata.metrics else {},
+                "tags": dict(mv.tags) if mv.tags else {},
+            })
+        except Exception:
+            continue
+    return results
+
+
+def get_model_version_details(version: str) -> dict | None:
+    """Get detailed information about a specific model version."""
+    client = MlflowClient()
+    try:
+        details = client.get_model_version(REGISTERED_MODEL_NAME, version)
+        return {
+            "name": details.name,
+            "version": details.version,
+            "stage": details.current_stage,
+            "run_id": details.run_id,
+            "creation_timestamp": details.creation_timestamp,
+            "last_updated_timestamp": details.last_updated_timestamp,
+            "status": details.status,
+            "status_message": details.status_message,
+            "metrics": dict(details.metadata.metrics) if details.metadata and details.metadata.metrics else {},
+            "tags": dict(details.tags) if details.tags else {},
+            "source": details.source,
+            "run_link": f"{client.tracking_uri}/#/experiments/{details.run_id}/runs/{details.run_id}",
+        }
+    except Exception as e:
+        log.warning(f"Failed to get model version details for {version}: {e}")
+        return None
+
+
+def compare_model_versions(champion_version: str, challenger_version: str) -> dict:
+    """Compare two model versions side by side."""
+    client = MlflowClient()
+
+    champion_details = get_model_version_details(champion_version)
+    challenger_details = get_model_version_details(challenger_version)
+
+    if not champion_details:
+        return {
+            "error": f"Champion version {champion_version} not found",
+            "promoted": False,
+        }
+
+    if not challenger_details:
+        return {
+            "error": f"Challenger version {challenger_version} not found",
+            "promoted": False,
+        }
+
+    # Compare metrics
+    champion_metrics = champion_details.get("metrics", {})
+    challenger_metrics = challenger_details.get("metrics", {})
+
+    all_metric_names = set(champion_metrics.keys()) | set(challenger_metrics.keys())
+
+    comparison = []
+    improvements = 0
+    degradations = 0
+
+    for metric_name in sorted(all_metric_names):
+        champ_val = champion_metrics.get(metric_name)
+        chall_val = challenger_metrics.get(metric_name)
+
+        if champ_val is not None and chall_val is not None:
+            try:
+                champ_f = float(champ_val)
+                chall_f = float(chall_val)
+                if champ_f > 0:
+                    improvement_pct = ((chall_f - champ_f) / champ_f) * 100
+                    if chall_f > champ_f:
+                        improvements += 1
+                    elif chall_f < champ_f:
+                        degradations += 1
+                comparison.append({
+                    "metric": metric_name,
+                    "champion": champ_val,
+                    "challenger": chall_val,
+                    "improvement_pct": round(improvement_pct, 2),
+                    "improved": chall_f > champ_f,
+                })
+            except (ValueError, TypeError):
+                comparison.append({
+                    "metric": metric_name,
+                    "champion": champ_val,
+                    "challenger": chall_val,
+                    "improvement_pct": None,
+                    "improved": None,
+                })
+        else:
+            comparison.append({
+                "metric": metric_name,
+                "champion": champ_val,
+                "challenger": chall_val,
+                "improvement_pct": None,
+                "improved": None,
+            })
+
+    is_better = improvements > degradations
+
+    return {
+        "champion_version": champion_version,
+        "challenger_version": challenger_version,
+        "champion_metrics": champion_metrics,
+        "challenger_metrics": challenger_metrics,
+        "comparison": comparison,
+        "improvements": improvements,
+        "degradations": degradations,
+        "is_better": is_better,
+        "recommend_promote": is_better and improvements > 0,
+    }

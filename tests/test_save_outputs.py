@@ -5,6 +5,7 @@ isolated tmp dir via a monkeypatched load_config. Never reads the real raw
 file; the real processed dir is snapshotted before and after to prove it is
 untouched.
 """
+
 import copy
 
 import joblib
@@ -72,8 +73,14 @@ def test_save_outputs_round_trip_isolated(tmp_path, monkeypatch, synthetic_df):
     save_outputs(pipeline, splits, ys, raw_splits=raw_splits, source_ids=source_ids)
 
     # All artifacts exist under the isolated dir: transformed + raw + pipeline.
-    for name in ("train.csv", "val.csv", "test.csv",
-                 "train_raw.csv", "val_raw.csv", "test_raw.csv"):
+    for name in (
+        "train.csv",
+        "val.csv",
+        "test.csv",
+        "train_raw.csv",
+        "val_raw.csv",
+        "test_raw.csv",
+    ):
         assert (tmp_path / name).exists()
     assert (tmp_path / "preprocessing_pipeline.joblib").exists()
 

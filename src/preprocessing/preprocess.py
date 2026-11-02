@@ -40,6 +40,7 @@ Column lists (numeric/categorical) are the single source of truth in
 ``data.categorical_cols``. ``NUMERIC_COLS`` / ``CATEGORICAL_COLS`` below are
 deprecated import-time aliases kept only so old imports don't crash.
 """
+
 from pathlib import Path
 import joblib
 import pandas as pd
@@ -60,11 +61,32 @@ log = get_logger()
 # config.yaml via get_column_lists(); these exist only for contexts where the
 # config can't be read and for backward-compatible imports.
 _DEFAULT_NUMERIC_COLS = [
-    "age", "bp", "sg", "al", "su", "bgr", "bu", "sc", "sod", "pot",
-    "hemo", "pcv", "wc", "rc",
+    "age",
+    "bp",
+    "sg",
+    "al",
+    "su",
+    "bgr",
+    "bu",
+    "sc",
+    "sod",
+    "pot",
+    "hemo",
+    "pcv",
+    "wc",
+    "rc",
 ]
 _DEFAULT_CATEGORICAL_COLS = [
-    "rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane",
+    "rbc",
+    "pc",
+    "pcc",
+    "ba",
+    "htn",
+    "dm",
+    "cad",
+    "appet",
+    "pe",
+    "ane",
 ]
 
 # Deprecated aliases — prefer get_column_lists().
@@ -109,8 +131,11 @@ def clean_raw(df: pd.DataFrame) -> pd.DataFrame:
     numeric_cols = [c for c in numeric_cfg if c in df.columns]
     categorical_cols = [c for c in categorical_cfg if c in df.columns]
     missing_expected = (
-        set(df.columns) - set(numeric_cols) - set(categorical_cols)
-        - {target_col} - ({id_col} if id_col else set())
+        set(df.columns)
+        - set(numeric_cols)
+        - set(categorical_cols)
+        - {target_col}
+        - ({id_col} if id_col else set())
     )
     if missing_expected:
         log.warning(
@@ -153,15 +178,19 @@ def split_raw(df: pd.DataFrame):
 
     strat = y if cfg["split"]["stratify"] else None
     X_train, X_temp, y_train, y_temp = train_test_split(
-        X, y,
+        X,
+        y,
         test_size=cfg["split"]["test_size"] + cfg["split"]["val_size"],
         random_state=cfg["split"]["random_state"],
         stratify=strat,
     )
-    val_ratio = cfg["split"]["val_size"] / (cfg["split"]["test_size"] + cfg["split"]["val_size"])
+    val_ratio = cfg["split"]["val_size"] / (
+        cfg["split"]["test_size"] + cfg["split"]["val_size"]
+    )
     strat_temp = y_temp if cfg["split"]["stratify"] else None
     X_val, X_test, y_val, y_test = train_test_split(
-        X_temp, y_temp,
+        X_temp,
+        y_temp,
         test_size=1 - val_ratio,
         random_state=cfg["split"]["random_state"],
         stratify=strat_temp,
@@ -182,7 +211,12 @@ def build_pipeline(numeric_cols: list[str], categorical_cols: list[str]) -> Pipe
     """
     cfg = load_config()
 
-    numeric_steps = [("imputer", SimpleImputer(strategy=cfg["preprocessing"]["numeric_impute_strategy"]))]
+    numeric_steps = [
+        (
+            "imputer",
+            SimpleImputer(strategy=cfg["preprocessing"]["numeric_impute_strategy"]),
+        )
+    ]
     if cfg["preprocessing"]["scale_numeric"]:
         numeric_steps.append(("scaler", StandardScaler()))
     numeric_pipeline = Pipeline(numeric_steps)
@@ -191,10 +225,17 @@ def build_pipeline(numeric_cols: list[str], categorical_cols: list[str]) -> Pipe
         encoder = OneHotEncoder(handle_unknown="ignore", drop="first")
     else:
         encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
-    categorical_pipeline = Pipeline([
-        ("imputer", SimpleImputer(strategy=cfg["preprocessing"]["categorical_impute_strategy"])),
-        ("encoder", encoder),
-    ])
+    categorical_pipeline = Pipeline(
+        [
+            (
+                "imputer",
+                SimpleImputer(
+                    strategy=cfg["preprocessing"]["categorical_impute_strategy"]
+                ),
+            ),
+            ("encoder", encoder),
+        ]
+    )
 
     transformers = []
     if numeric_cols:
@@ -212,7 +253,9 @@ def _to_dataframe(arr, pipeline: Pipeline, index) -> pd.DataFrame:
     except Exception:
         log.warning("get_feature_names_out() failed — falling back to f{i} names")
         cols = [f"f{i}" for i in range(arr.shape[1])]
-    if hasattr(arr, "toarray"):  # sparse matrix from OneHotEncoder; dense is fine at CKD scale
+    if hasattr(
+        arr, "toarray"
+    ):  # sparse matrix from OneHotEncoder; dense is fine at CKD scale
         arr = arr.toarray()  # ceiling: switch to sparse CSR past ~100k rows
     return pd.DataFrame(arr, columns=cols, index=index)
 
@@ -229,7 +272,9 @@ def fit_transform_split(X_train, X_val, X_test, y_train, y_val, y_test):
     val_df = _to_dataframe(pipeline.transform(X_val), pipeline, X_val.index)
     test_df = _to_dataframe(pipeline.transform(X_test), pipeline, X_test.index)
 
-    log.info(f"Fitted pipeline on train only: {train_df.shape[0]} rows x {train_df.shape[1]} feature columns")
+    log.info(
+        f"Fitted pipeline on train only: {train_df.shape[0]} rows x {train_df.shape[1]} feature columns"
+    )
     log.info(f"Feature columns: {list(train_df.columns)}")
     log.info(f"Train target distribution: {y_train.value_counts().to_dict()}")
     log.info(f"Val target distribution: {y_val.value_counts().to_dict()}")
@@ -254,7 +299,9 @@ def save_outputs(pipeline, splits, ys, raw_splits=None, source_ids=None) -> None
 
     raws = raw_splits if raw_splits is not None else [None, None, None]
     ids = source_ids if source_ids is not None else [None, None, None]
-    for name, X_split, y_split, X_raw, id_vals in zip(["train", "val", "test"], splits, ys, raws, ids):
+    for name, X_split, y_split, X_raw, id_vals in zip(
+        ["train", "val", "test"], splits, ys, raws, ids
+    ):
         split_df = X_split.copy()
         split_df[LINEAGE_ROW_COL] = X_split.index
         if id_vals is not None:
@@ -288,7 +335,9 @@ def main():
         raise SystemExit("Raw-data validation failed — aborting before clean/split.")
     df = clean_raw(df_raw)
     X_train, X_val, X_test, y_train, y_val, y_test = split_raw(df)
-    pipeline, splits, ys = fit_transform_split(X_train, X_val, X_test, y_train, y_val, y_test)
+    pipeline, splits, ys = fit_transform_split(
+        X_train, X_val, X_test, y_train, y_val, y_test
+    )
 
     cfg = load_config()
     id_col = cfg["data"].get("id_column")
@@ -297,8 +346,9 @@ def main():
         source_ids = [id_map.loc[X.index] for X in (X_train, X_val, X_test)]
     else:
         source_ids = [None, None, None]
-    save_outputs(pipeline, splits, ys,
-                 raw_splits=(X_train, X_val, X_test), source_ids=source_ids)
+    save_outputs(
+        pipeline, splits, ys, raw_splits=(X_train, X_val, X_test), source_ids=source_ids
+    )
     log.info("Phase 1 preprocessing complete (leak-safe, single-pipeline artifact).")
 
 

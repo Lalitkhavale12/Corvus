@@ -47,7 +47,10 @@ def get_session_local():
 def get_db():
     SessionLocal = get_session_local()
     if SessionLocal is None:
-        raise RuntimeError("DATABASE_URL not configured — auth requires PostgreSQL")
+        # DATABASE_URL not configured: yield None so auth can be checked
+        # first (401) before DB-dependent operations (503).
+        yield None
+        return
     db = SessionLocal()
     try:
         yield db

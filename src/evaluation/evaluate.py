@@ -7,6 +7,7 @@ Production (D-06: separate explicit step).
 
 Invoked as ``python -m src.evaluation.evaluate`` from the project root.
 """
+
 import os
 import sys
 from types import SimpleNamespace
@@ -65,8 +66,12 @@ def resolve_winner_version(versions: list, winner_run_id: str):
     return max(v.version for v in versions)
 
 
-def apply_registry_stages(client: MlflowClient, model_name: str, winner_version: str,
-                          superseded_versions: list) -> None:
+def apply_registry_stages(
+    client: MlflowClient,
+    model_name: str,
+    winner_version: str,
+    superseded_versions: list,
+) -> None:
     """Winner to Staging, superseded to Archived. Never Production (D-06)."""
     # TECH DEBT (Pitfall 2): model-registry stages are deprecated since
     # MLflow 2.9 and slated for removal in a future major; still functional
@@ -117,8 +122,9 @@ def run_evaluation(model_name: str = REGISTERED_MODEL_NAME):
         else:
             winner_version, stage = None, None
         log.info(f"Winner: {winner['run_name']} roc_auc={winner['metrics']['roc_auc']}")
-        return SimpleNamespace(success=True, winner=winner,
-                               version=winner_version, stage=stage)
+        return SimpleNamespace(
+            success=True, winner=winner, version=winner_version, stage=stage
+        )
     except Exception as exc:
         log.warning(f"Evaluation failed: {type(exc).__name__}: {exc}")
         return SimpleNamespace(success=False, winner=None)
@@ -131,9 +137,11 @@ def main() -> int:
         print(f"EVALUATION ERROR: {exc}")
         return 1
     if result.success:
-        print(f"WINNER {result.winner['run_name']} "
-              f"roc_auc={result.winner['metrics']['roc_auc']:.4f} "
-              f"version={result.version} stage={result.stage}")
+        print(
+            f"WINNER {result.winner['run_name']} "
+            f"roc_auc={result.winner['metrics']['roc_auc']:.4f} "
+            f"version={result.version} stage={result.stage}"
+        )
         return 0
     print("EVALUATION FAILED — see log for details")
     return 1

@@ -17,8 +17,12 @@ from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
 
+from src.feature_engineering.nhanes_features import (
+    ENGINEERED_COLS,
+    derive_nhanes_features,
+)
 from src.utils.config import load_config
 from src.utils.logger import get_logger
 
@@ -87,8 +91,13 @@ def build_native_pipeline(
     """Return an UNFITTED native pipeline; caller fits it on dev only.
 
     Numerics: median impute + StandardScaler. Categoricals: most-frequent
-    impute + OneHotEncoder(handle_unknown="ignore", drop="first"). Mirrors
-    ``preprocess.build_pipeline`` exactly — only the column lists differ.
+    impute + OneHotEncoder(handle_unknown="ignore", drop="first").
+
+    The first step derives the engineered clinical features from the raw
+    allow-list. Deriving inside the pipeline (rather than baking the
+    columns into the training frame) keeps the serving contract equal to
+    the raw 20+5 allow-list: the API posts raw labs, the pipeline expands
+    them, so a co-logged artifact cannot drift from the estimator width.
     """
     if numeric_cols is None or categorical_cols is None:
         cfg_numeric, cfg_categorical = get_nhanes_column_lists()
@@ -97,6 +106,12 @@ def build_native_pipeline(
             cfg_categorical if categorical_cols is None else categorical_cols
         )
     cfg = load_config()
+
+    # Engineered names are appended here, never to data.nhanes_numeric_cols:
+    # that config list is the raw serving contract read by the API probe.
+    numeric_cols = list(numeric_cols) + [
+        col for col in ENGINEERED_COLS if col not in numeric_cols
+    ]
 
     numeric_steps = [
         (
@@ -127,7 +142,12 @@ def build_native_pipeline(
         transformers.append(("cat", categorical_pipeline, categorical_cols))
 
     preprocessor = ColumnTransformer(transformers)
-    return Pipeline([("preprocessor", preprocessor)])
+    return Pipeline(
+        [
+            ("features", FunctionTransformer(derive_nhanes_features, validate=False)),
+            ("preprocessor", preprocessor),
+        ]
+    )
 
 
 def locked_holdout_split(

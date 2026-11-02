@@ -16,6 +16,7 @@ same-rows same-labels without ever refitting on the holdout.
 Invoked as ``python -m src.training.train_nhanes`` from the project root.
 """
 
+import json
 import os
 import warnings
 from pathlib import Path
@@ -29,7 +30,13 @@ from lightgbm import LGBMClassifier
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import (
+    average_precision_score,
+    brier_score_loss,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import StratifiedKFold
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -96,6 +103,11 @@ NATIVE_ESTIMATORS = {
 
 NATIVE_PIPELINE_FILENAME = "preprocessing_pipeline_nhanes.joblib"
 HOLDOUT_PREDS_FILENAME = "holdout_predictions_native.csv"
+# Deployed operating point: the probability cut-off the API uses to turn
+# ``predict_proba`` into a yes/no. Bound to the model version it was
+# selected for, because the cut-off depends on the estimator's scale.
+THRESHOLD_FILENAME = "nhanes_decision_threshold.json"
+THRESHOLD_ARTIFACT_PATH = "evaluation"
 
 
 def build_native_estimator(name: str):
@@ -173,6 +185,7 @@ def run_cv_native(
     """
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
     fold_aucs = []
+    oof = np.full(len(y_dev), np.nan)
     for tr, va in skf.split(X_dev, y_dev):
         pipe = build_native_pipeline(numeric_cols, categorical_cols)
         pipe.fit(X_dev.iloc[tr])  # fit on fold-train only (leak-safe)
@@ -184,11 +197,15 @@ def run_cv_native(
             name,
         )
         proba = estimator.predict_proba(pipe.transform(X_dev.iloc[va]))[:, 1]
+        oof[va] = proba
         fold_aucs.append(float(roc_auc_score(y_dev.iloc[va], proba)))
     return {
         "mean_auc": float(np.mean(fold_aucs)),
         "std_auc": float(np.std(fold_aucs)),
         "fold_aucs": fold_aucs,
+        # Out-of-fold probabilities, assembled across folds: dev-split only,
+        # so a cut-off chosen from these never sees the holdout.
+        "oof_proba": oof,
     }
 
 
@@ -241,6 +258,31 @@ def select_by_cv(cv_results: dict) -> str:
     return max(cv_results, key=lambda n: cv_results[n]["mean_auc"])
 
 
+def threshold_for_recall(y_true, y_proba, target_recall: float) -> float:
+    """Highest probability cut-off that still reaches ``target_recall``.
+
+    Candidate cut-offs are the observed probabilities themselves, so the
+    result is reproducible and needs no grid. Because the candidates are
+    walked high-to-low, the *first* one that reaches the target is also the
+    most specific one; using the last would land on every-row-positive.
+    """
+    if not 0 < target_recall <= 1:
+        raise ValueError("target_recall must be in (0, 1]")
+    y = np.asarray(y_true, dtype=int)
+    p = np.asarray(y_proba, dtype=float)
+    total_pos = int(y.sum())
+    if total_pos == 0:
+        raise ValueError("cannot target a recall with no positive labels")
+
+    order = np.argsort(-p)
+    proba_sorted = p[order]
+    tp = np.cumsum(y[order])
+    reaching = np.flatnonzero(tp / total_pos >= target_recall)
+    if reaching.size == 0:  # unreachable only via float slop; take the floor
+        return 0.0
+    return float(proba_sorted[reaching[0]])
+
+
 def run_experiment_native(name: str = "logistic-regression", cv_stats: dict = None) -> dict:
     """Refit the winning config on full dev, score the holdout once, log Claim-2."""
     X, y, numeric_cols, categorical_cols = load_native_frame()
@@ -256,12 +298,28 @@ def run_experiment_native(name: str = "logistic-regression", cv_stats: dict = No
 
     estimator = build_native_estimator(name)
     _fit_native(estimator, pipeline.transform(X_dev), y_dev, name)
-    y_pred = estimator.predict(X_hold_t)
     y_proba = estimator.predict_proba(X_hold_t)[:, 1]
-    metrics = compute_metrics(y_hold, y_pred, y_proba)
-    ci_lo, ci_hi = bootstrap_auc_ci(y_hold, y_proba)
 
     cfg = load_config()
+    target_recall = float(cfg["data"].get("nhanes_target_recall", 0.80))
+    oof = cv_stats.get("oof_proba")
+    if oof is not None and not np.isnan(oof).any():
+        # Chosen on dev out-of-fold probabilities only: the holdout below is
+        # scored with a cut-off that never saw it.
+        threshold = threshold_for_recall(y_dev, oof, target_recall)
+    else:
+        threshold = 0.5
+        log.warning("no out-of-fold probabilities; falling back to threshold 0.5")
+
+    y_pred = (y_proba >= threshold).astype(int)
+    metrics = compute_metrics(y_hold, y_pred, y_proba)
+    ci_lo, ci_hi = bootstrap_auc_ci(y_hold, y_proba)
+    # Keep the previous default operating point alongside the deployed one so
+    # this run stays directly comparable with every earlier native run.
+    y_pred_default = (y_proba >= 0.5).astype(int)
+    pr_auc = float(average_precision_score(y_hold, y_proba))
+    brier = float(brier_score_loss(y_hold, y_proba))
+
     pipeline_path = Path(cfg["data"]["processed_dir"]) / NATIVE_PIPELINE_FILENAME
     pipeline_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(pipeline, pipeline_path)
@@ -273,6 +331,22 @@ def run_experiment_native(name: str = "logistic-regression", cv_stats: dict = No
             "y_proba": np.asarray(y_proba, dtype=float),
         }
     ).to_csv(holdout_path, index=False)
+
+    threshold_path = Path(cfg["data"]["processed_dir"]) / THRESHOLD_FILENAME
+    threshold_path.write_text(
+        json.dumps(
+            {
+                "threshold": threshold,
+                "target_recall": target_recall,
+                "selected_on": "dev_out_of_fold",
+                "config": name,
+                "holdout_precision": float(metrics["precision"]),
+                "holdout_recall": float(metrics["recall"]),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     mlflow.set_tracking_uri(str(PROJECT_ROOT / cfg["mlflow"]["tracking_uri"]))
     mlflow.set_experiment(cfg["mlflow"]["nhanes_experiment_name"])
@@ -289,10 +363,21 @@ def run_experiment_native(name: str = "logistic-regression", cv_stats: dict = No
                 "cv_std_auc": cv_stats["std_auc"],
                 "holdout_auc_ci_lo": ci_lo,
                 "holdout_auc_ci_hi": ci_hi,
+                "holdout_pr_auc": pr_auc,
+                "holdout_brier": brier,
+                "decision_threshold": threshold,
+                "target_recall": target_recall,
+                "holdout_precision_at_0_50": float(
+                    precision_score(y_hold, y_pred_default, zero_division=0)
+                ),
+                "holdout_recall_at_0_50": float(
+                    recall_score(y_hold, y_pred_default, zero_division=0)
+                ),
             }
         )
         mlflow.log_artifact(str(pipeline_path), artifact_path="preprocessing")
         mlflow.log_artifact(str(holdout_path), artifact_path="evaluation")
+        mlflow.log_artifact(str(threshold_path), artifact_path=THRESHOLD_ARTIFACT_PATH)
         mlflow.sklearn.log_model(
             estimator,
             artifact_path="model",
@@ -312,6 +397,7 @@ def run_experiment_native(name: str = "logistic-regression", cv_stats: dict = No
         "features": list(X.columns),
         "cv": cv_stats,
         "ci": (ci_lo, ci_hi),
+        "threshold": threshold,
     }
 
 

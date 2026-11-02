@@ -7,6 +7,7 @@ and reversible only via an explicit second transition.
 Invoked as ``.\\venv\\python.exe scripts/promote_production.py`` from the
 project root.
 """
+
 import os
 import sys
 from pathlib import Path
@@ -49,7 +50,9 @@ def main() -> int:
     except Exception as exc:
         print(f"PROMOTION ERROR: {exc}")
         return 1
-    print(f"PROMOTED {REGISTERED_MODEL_NAME} version={PROMOTE_VERSION} stage=Production")
+    print(
+        f"PROMOTED {REGISTERED_MODEL_NAME} version={PROMOTE_VERSION} stage=Production"
+    )
     return 0
 
 

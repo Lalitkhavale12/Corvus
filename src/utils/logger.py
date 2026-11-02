@@ -1,4 +1,5 @@
 """Central logger setup for Corvus. Import get_logger() wherever you need it."""
+
 import sys
 from pathlib import Path
 from loguru import logger

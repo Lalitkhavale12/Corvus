@@ -18,15 +18,19 @@ from __future__ import annotations
 
 import datetime
 import io
+import time
 from contextlib import asynccontextmanager
+from typing import List
 
 import pandas as pd
-from fastapi import Depends, FastAPI, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from sqlalchemy.orm import Session
 
 from api import db, model_loader
+from api.db import PredictionLog, PredictionLogV2
 from api.schemas import (
     BatchPredictionItem,
     BatchPredictionResponse,
@@ -35,14 +39,37 @@ from api.schemas import (
     HealthResponse,
     ModelInfoResponse,
     NativeBatchItem,
+    PredictionHistoryOut,
     PredictionResponse,
 )
 from src.auth.auth import authenticate_user, create_user, get_user_by_email
-from src.auth.dependencies import get_current_user
-from src.auth.models import User
-from src.auth.schemas import Token, UserLogin, UserOut, UserRegister
+from src.auth.dependencies import (
+    get_current_doctor,
+    get_current_patient,
+    get_current_user,
+    require_user,
+)
+from src.auth.models import (
+    DoctorProfile,
+    PatientDoctorMapping,
+    PatientProfile,
+    User,
+)
+from src.auth.schemas import (
+    DoctorProfileCreate,
+    DoctorProfileOut,
+    PatientDoctorAssign,
+    PatientDoctorMappingOut,
+    PatientProfileCreate,
+    PatientProfileOut,
+    ProfileOut,
+    Token,
+    UserLogin,
+    UserOut,
+    UserRegister,
+)
 from src.auth.security import create_access_token
-from src.database import Base, get_db
+from src.database import Base, get_db, get_engine
 from src.preprocessing.preprocess import (
     LINEAGE_ID_COL,
     LINEAGE_ROW_COL,
@@ -53,6 +80,37 @@ from src.utils.config import load_config
 from src.utils.logger import get_logger
 
 log = get_logger()
+
+# Prometheus metrics (Phase 4)
+REQUEST_COUNT = Counter(
+    "corvus_http_requests_total",
+    "Total HTTP requests",
+    ["method", "endpoint", "status_code"],
+)
+REQUEST_DURATION = Histogram(
+    "corvus_http_request_duration_seconds",
+    "HTTP request duration in seconds",
+    ["method", "endpoint"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
+)
+PREDICTIONS_TOTAL = Counter(
+    "corvus_predictions_total",
+    "Total predictions served",
+    ["model_version", "result"],
+)
+PREDICTION_PROBABILITY = Histogram(
+    "corvus_prediction_probability",
+    "Prediction probability distribution",
+    buckets=(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0),
+)
+DB_CONNECTIONS = Gauge(
+    "corvus_db_connections_active",
+    "Active database connections",
+)
+USERS_TOTAL = Gauge(
+    "corvus_users_total",
+    "Total registered users",
+)
 
 _NUMERIC_COLS, _CATEGORICAL_COLS = get_column_lists()
 COLUMN_ORDER = _NUMERIC_COLS + _CATEGORICAL_COLS
@@ -91,6 +149,9 @@ async def lifespan(app: FastAPI):
         app.state.v2_model = v2_model
         app.state.v2_pipeline = v2_pipeline
         app.state.v2_run_id = v2_run_id
+        # Operating point chosen on dev out-of-fold probabilities; 0.5 is
+        # unusable here (it misses roughly two thirds of true cases).
+        app.state.v2_threshold = model_loader.load_v2_threshold(v2_version)
     else:
         # No approved challenger pin: v2 slots stay empty and every /v2
         # route fails closed via _require_v2 (T-07-14). v1 serves on.
@@ -98,6 +159,7 @@ async def lifespan(app: FastAPI):
         app.state.v2_model = None
         app.state.v2_pipeline = None
         app.state.v2_run_id = ""
+        app.state.v2_threshold = model_loader.DEFAULT_DECISION_THRESHOLD
         log.warning(
             "api.v2_pinned_version unset — /v2 routes will 503 until "
             "an approved challenger version is pinned"
@@ -106,6 +168,12 @@ async def lifespan(app: FastAPI):
     if engine is not None:
         db.Session.configure(bind=engine)
     db.create_tables()
+    # Auth tables live on src.database.Base, a different metadata from the
+    # prediction log's Base (api/db.py), so db.create_tables() never makes
+    # them. Without this a fresh Postgres 500s on /auth/register.
+    auth_engine = get_engine()
+    if auth_engine is not None:
+        Base.metadata.create_all(bind=auth_engine)
     yield
 
 
@@ -113,11 +181,45 @@ app = FastAPI(title="Corvus CKD Prediction API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    # :3000 is the built nginx image; :5173/:5174 are the Vite dev server.
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    """Track request metrics for Prometheus."""
+    start_time = time.time()
+    method = request.method
+    path = request.url.path
+    response = await call_next(request)
+    duration = time.time() - start_time
+    REQUEST_COUNT.labels(method=method, endpoint=path, status_code=response.status_code).inc()
+    REQUEST_DURATION.labels(method=method, endpoint=path).observe(duration)
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Prometheus metrics endpoint (Phase 4)
+# ---------------------------------------------------------------------------
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def metrics():
+    """Prometheus metrics endpoint."""
+    return PlainTextResponse(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST,
+    )
 
 
 def _require_log_store() -> None:
@@ -156,7 +258,9 @@ def _predict_frame(frame: pd.DataFrame) -> tuple[list[int], list[float]]:
     return [int(p) for p in preds], [float(p[1]) for p in probas]
 
 
-def _log_predictions(rows: list[dict], preds: list[int], probas: list[float]) -> None:
+def _log_predictions(
+    rows: list[dict], preds: list[int], probas: list[float], user_id: int | None = None
+) -> None:
     """One PredictionLog row per prediction, a single commit (all-or-nothing)."""
     session = db.Session()
     try:
@@ -167,6 +271,7 @@ def _log_predictions(rows: list[dict], preds: list[int], probas: list[float]) ->
                     prediction=pred,
                     probability=proba,
                     model_version=app.state.model_version,
+                    user_id=user_id,
                     # Stamp here (not only server_default) so every row
                     # instance carries its D-04 timestamp, mocked or real.
                     created_at=datetime.datetime.now(),
@@ -182,12 +287,21 @@ def _log_predictions(rows: list[dict], preds: list[int], probas: list[float]) ->
 
 
 @app.post("/predict", response_model=PredictionResponse)
-def predict(body: CKDRequest):
+def predict(
+    body: CKDRequest,
+    current_user: User = Depends(require_user),
+):
     """Validate (422) → transform → predict → log → versioned JSON."""
     _require_log_store()
     frame = _frame_from_request(body)
     preds, probas = _predict_frame(frame)
-    _log_predictions([body.model_dump()], preds, probas)
+    _log_predictions([body.model_dump()], preds, probas, user_id=current_user.id)
+    # Track prediction metrics
+    PREDICTIONS_TOTAL.labels(
+        model_version=app.state.model_version,
+        result=str(preds[0]),
+    ).inc()
+    PREDICTION_PROBABILITY.observe(probas[0])
     return PredictionResponse(
         prediction=preds[0],
         probability=probas[0],
@@ -196,7 +310,10 @@ def predict(body: CKDRequest):
 
 
 @app.post("/batch_predict", response_model=BatchPredictionResponse)
-def batch_predict(file: UploadFile):
+def batch_predict(
+    file: UploadFile,
+    current_user: User = Depends(require_user),
+):
     """CSV upload with the 24 columns; all-or-nothing per D-08.
 
     Every row validates first — one bad row rejects the whole batch with
@@ -239,7 +356,7 @@ def batch_predict(file: UploadFile):
             raise HTTPException(status_code=422, detail=f"row {i}: {exc}")
     batch = pd.DataFrame(rows)[COLUMN_ORDER]
     preds, probas = _predict_frame(batch)
-    _log_predictions(rows, preds, probas)
+    _log_predictions(rows, preds, probas, user_id=current_user.id)
     return BatchPredictionResponse(
         predictions=[
             BatchPredictionItem(row=i, prediction=p, probability=q)
@@ -282,15 +399,20 @@ def _predict_frame_v2(frame: pd.DataFrame) -> tuple[list[int], list[float]]:
     """v2 pipeline.transform then predict/proba; 500 JSON on surprise failures."""
     try:
         features = app.state.v2_pipeline.transform(frame)
-        preds = app.state.v2_model.predict(features)
         probas = app.state.v2_model.predict_proba(features)
+        threshold = getattr(
+            app.state, "v2_threshold", model_loader.DEFAULT_DECISION_THRESHOLD
+        )
+        preds = (probas[:, 1] >= threshold).astype(int)
     except Exception as exc:
         log.warning(f"V2 inference failed: {type(exc).__name__}: {exc}")
         raise HTTPException(status_code=500, detail="inference failed")
     return [int(p) for p in preds], [float(p[1]) for p in probas]
 
 
-def _log_predictions_v2(rows: list[dict], preds: list[int], probas: list[float]) -> None:
+def _log_predictions_v2(
+    rows: list[dict], preds: list[int], probas: list[float], user_id: int | None = None
+) -> None:
     """One PredictionLogV2 row per prediction, a single commit (all-or-nothing)."""
     session = db.Session()
     try:
@@ -301,6 +423,7 @@ def _log_predictions_v2(rows: list[dict], preds: list[int], probas: list[float])
                     prediction=pred,
                     probability=proba,
                     model_version=app.state.v2_model_version,
+                    user_id=user_id,
                     created_at=datetime.datetime.now(),
                 )
             )
@@ -314,13 +437,22 @@ def _log_predictions_v2(rows: list[dict], preds: list[int], probas: list[float])
 
 
 @app.post("/v2/predict", response_model=PredictionResponse)
-def predict_v2(body: CKDRequestNative):
+def predict_v2(
+    body: CKDRequestNative,
+    current_user: User = Depends(require_user),
+):
     """Validate (422) → transform → predict → log to predictions_v2 → versioned JSON."""
     _require_v2()
     _require_log_store()
     frame = _frame_from_native_request(body)
     preds, probas = _predict_frame_v2(frame)
-    _log_predictions_v2([body.model_dump()], preds, probas)
+    _log_predictions_v2([body.model_dump()], preds, probas, user_id=current_user.id)
+    # Track prediction metrics
+    PREDICTIONS_TOTAL.labels(
+        model_version=app.state.v2_model_version,
+        result=str(preds[0]),
+    ).inc()
+    PREDICTION_PROBABILITY.observe(probas[0])
     return PredictionResponse(
         prediction=preds[0],
         probability=probas[0],
@@ -329,7 +461,10 @@ def predict_v2(body: CKDRequestNative):
 
 
 @app.post("/v2/batch_predict", response_model=BatchPredictionResponse)
-def batch_predict_v2(file: UploadFile):
+def batch_predict_v2(
+    file: UploadFile,
+    current_user: User = Depends(require_user),
+):
     """Native-schema CSV upload; all-or-nothing with 1-indexed offender rows.
 
     Mirrors the v1 batch shape: size/row caps (413) before full parse,
@@ -371,7 +506,7 @@ def batch_predict_v2(file: UploadFile):
             raise HTTPException(status_code=422, detail=f"row {i}: {exc}")
     batch = pd.DataFrame(rows)[COLUMN_ORDER_V2]
     preds, probas = _predict_frame_v2(batch)
-    _log_predictions_v2(rows, preds, probas)
+    _log_predictions_v2(rows, preds, probas, user_id=current_user.id)
     return BatchPredictionResponse(
         predictions=[
             BatchPredictionItem(row=i, prediction=p, probability=q)
@@ -395,6 +530,76 @@ def model_info_v2():
 
 
 # ---------------------------------------------------------------------------
+# Model Management Endpoints (Phase 4 - Enhanced)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/models", response_model=List[dict])
+def list_all_models(current_user: User = Depends(get_current_user)):
+    """List all registered model versions in MLflow registry."""
+    try:
+        models = model_loader.list_all_model_versions()
+        return models
+    except Exception as e:
+        log.warning(f"Failed to list models: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list models")
+
+
+@app.get("/api/v1/models/{version}/details", response_model=dict)
+def get_model_details(version: str, current_user: User = Depends(get_current_user)):
+    """Get detailed information about a specific model version."""
+    try:
+        details = model_loader.get_model_version_details(model_version=version)
+        if not details:
+            raise HTTPException(status_code=404, detail=f"Model version {version} not found")
+        return details
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.warning(f"Failed to get model details: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get model details")
+
+
+@app.get("/api/v1/models/compare", response_model=dict)
+def compare_models(
+    current_user: User = Depends(get_current_user),
+    champion_version: str = "9",
+    challenger_version: str = "11",
+):
+    """Compare two model versions side by side."""
+    try:
+        comparison = model_loader.compare_model_versions(
+            champion_version=champion_version,
+            challenger_version=challenger_version,
+        )
+        return comparison
+    except Exception as e:
+        log.warning(f"Failed to compare models: {e}")
+        raise HTTPException(status_code=500, detail="Failed to compare models")
+
+
+@app.post("/api/v1/models/promote", response_model=dict)
+def promote_challenger_model(
+    challenger_version: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Promote a challenger model to production."""
+    try:
+        from src.model_promotion import promote_challenger
+        result = promote_challenger(
+            model_name=model_loader.REGISTERED_MODEL_NAME,
+            challenger_version=int(challenger_version),
+        )
+        if result.get("promoted"):
+            # Update the pinned version in app state
+            app.state.v2_model_version = challenger_version
+            app.state.v2_model_version = challenger_version
+        return result
+    except Exception as e:
+        log.warning(f"Failed to promote challenger: {e}")
+        raise HTTPException(status_code=500, detail="Failed to promote challenger")
+
+
+# ---------------------------------------------------------------------------
 # Auth routes (Phase 8-01)
 # ---------------------------------------------------------------------------
 
@@ -413,6 +618,7 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
             status_code=400,
             detail="email already registered",
         )
+    USERS_TOTAL.inc()
     return UserOut(
         id=user.id,
         email=user.email,
@@ -452,3 +658,197 @@ def read_users_me(current_user: User = Depends(get_current_user)):
         is_active=current_user.is_active,
         created_at=current_user.created_at,
     )
+
+
+# ---------------------------------------------------------------------------
+# Auth routes (Phase 8-02)
+# ---------------------------------------------------------------------------
+
+@app.post("/auth/profile", response_model=ProfileOut, status_code=201)
+def create_profile(
+    profile_in: PatientProfileCreate | DoctorProfileCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create the current user's profile (branches on role)."""
+    if current_user.role == "patient":
+        existing = db.query(PatientProfile).filter(PatientProfile.user_id == current_user.id).first()
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="patient profile already exists",
+            )
+        profile = PatientProfile(
+            user_id=current_user.id,
+            first_name=profile_in.first_name,
+            last_name=profile_in.last_name,
+            date_of_birth=profile_in.date_of_birth,
+            sex=profile_in.sex,
+            phone=profile_in.phone,
+            mrn=profile_in.mrn,
+        )
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+        return ProfileOut(role="patient", patient_profile=profile)
+    else:
+        existing = db.query(DoctorProfile).filter(DoctorProfile.user_id == current_user.id).first()
+        if existing:
+            raise HTTPException(
+                status_code=400,
+                detail="doctor profile already exists",
+            )
+        profile = DoctorProfile(
+            user_id=current_user.id,
+            first_name=profile_in.first_name,
+            last_name=profile_in.last_name,
+            license_number=profile_in.license_number,
+            specialization=profile_in.specialization,
+            phone=profile_in.phone,
+        )
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+        return ProfileOut(role="doctor", doctor_profile=profile)
+
+
+@app.get("/auth/profile", response_model=ProfileOut)
+def read_profile(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Return the current user's role-appropriate profile."""
+    if current_user.role == "patient":
+        profile = db.query(PatientProfile).filter(PatientProfile.user_id == current_user.id).first()
+        if profile is None:
+            raise HTTPException(status_code=404, detail="patient profile not found")
+        return ProfileOut(role="patient", patient_profile=profile)
+    else:
+        profile = db.query(DoctorProfile).filter(DoctorProfile.user_id == current_user.id).first()
+        if profile is None:
+            raise HTTPException(status_code=404, detail="doctor profile not found")
+        return ProfileOut(role="doctor", doctor_profile=profile)
+
+
+@app.get("/doctors/patients", response_model=list[PatientDoctorMappingOut])
+def list_doctor_patients(
+    current_user: User = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+):
+    """Doctor lists assigned patients (requires doctor role)."""
+    mappings = (
+        db.query(PatientDoctorMapping)
+        .filter(PatientDoctorMapping.doctor_id == current_user.id, PatientDoctorMapping.is_active == True)  # noqa: E712
+        .all()
+    )
+    return mappings
+
+
+@app.post("/doctors/patients/assign", response_model=PatientDoctorMappingOut, status_code=201)
+def assign_patient(
+    assign_in: PatientDoctorAssign,
+    current_user: User = Depends(get_current_doctor),
+    db: Session = Depends(get_db),
+):
+    """Doctor assigns a patient by email (requires doctor role)."""
+    patient = get_user_by_email(db, assign_in.patient_email)
+    if patient is None:
+        raise HTTPException(status_code=404, detail="patient not found")
+    if patient.role != "patient":
+        raise HTTPException(status_code=400, detail="user is not a patient")
+    existing = (
+        db.query(PatientDoctorMapping)
+        .filter(
+            PatientDoctorMapping.patient_id == patient.id,
+            PatientDoctorMapping.doctor_id == current_user.id,
+            PatientDoctorMapping.is_active == True,  # noqa: E712
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="patient already assigned to this doctor")
+    mapping = PatientDoctorMapping(patient_id=patient.id, doctor_id=current_user.id)
+    db.add(mapping)
+    db.commit()
+    db.refresh(mapping)
+    return mapping
+
+
+# ---------------------------------------------------------------------------
+# Prediction history (Phase 8-03)
+# ---------------------------------------------------------------------------
+
+@app.get("/auth/predictions", response_model=list[PredictionHistoryOut])
+def list_predictions(current_user: User = Depends(require_user), session: Session = Depends(get_db)):
+    """Return the current user's prediction history (v1 + v2 rows)."""
+    v1_rows = (
+        session.query(PredictionLog)
+        .filter(PredictionLog.user_id == current_user.id)
+        .order_by(PredictionLog.created_at.desc())
+        .all()
+    )
+    v2_rows = (
+        session.query(PredictionLogV2)
+        .filter(PredictionLogV2.user_id == current_user.id)
+        .order_by(PredictionLogV2.created_at.desc())
+        .all()
+    )
+    combined = []
+    for row in v1_rows:
+        combined.append(
+            PredictionHistoryOut(
+                id=row.id,
+                model_version=row.model_version,
+                prediction=row.prediction,
+                probability=row.probability,
+                created_at=row.created_at,
+            )
+        )
+    for row in v2_rows:
+        combined.append(
+            PredictionHistoryOut(
+                id=row.id,
+                model_version=row.model_version,
+                prediction=row.prediction,
+                probability=row.probability,
+                created_at=row.created_at,
+            )
+        )
+    combined.sort(key=lambda r: r.created_at or "", reverse=True)
+    return combined
+
+
+@app.get("/auth/predictions/{prediction_id}", response_model=PredictionHistoryOut)
+def get_prediction(
+    prediction_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_db),
+):
+    """Return a single prediction if owned by the current user."""
+    row = (
+        session.query(PredictionLog)
+        .filter(PredictionLog.id == prediction_id, PredictionLog.user_id == current_user.id)
+        .first()
+    )
+    if row is not None:
+        return PredictionHistoryOut(
+            id=row.id,
+            model_version=row.model_version,
+            prediction=row.prediction,
+            probability=row.probability,
+            created_at=row.created_at,
+        )
+    row = (
+        session.query(PredictionLogV2)
+        .filter(
+            PredictionLogV2.id == prediction_id,
+            PredictionLogV2.user_id == current_user.id,
+        )
+        .first()
+    )
+    if row is not None:
+        return PredictionHistoryOut(
+            id=row.id,
+            model_version=row.model_version,
+            prediction=row.prediction,
+            probability=row.probability,
+            created_at=row.created_at,
+        )
+    raise HTTPException(status_code=404, detail="prediction not found")

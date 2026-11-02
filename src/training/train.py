@@ -7,6 +7,7 @@ only, fit one estimator, log params + 5 test metrics + pipeline artifact
 
 Invoked as ``python -m src.training.train`` from the project root.
 """
+
 from pathlib import Path
 
 import joblib
@@ -86,9 +87,11 @@ def load_raw_splits():
     for split in ("train", "val", "test"):
         path = processed_dir / f"{split}_raw.csv"
         df = pd.read_csv(path).copy()
-        unexpected = set(df.columns) - set(
-            get_column_lists()[0] + get_column_lists()[1]
-        ) - {target_col, LINEAGE_ROW_COL, LINEAGE_ID_COL}
+        unexpected = (
+            set(df.columns)
+            - set(get_column_lists()[0] + get_column_lists()[1])
+            - {target_col, LINEAGE_ROW_COL, LINEAGE_ID_COL}
+        )
         if unexpected:
             log.warning(f"Unexpected columns in {path.name}: {unexpected}")
         y_raw = df[target_col]
@@ -96,8 +99,12 @@ def load_raw_splits():
             # Phase 1 clean_raw already binary-encoded the target.
             y = pd.to_numeric(y_raw).astype(int)
         else:
-            y = (y_raw.astype(str).str.strip().str.lower() == positive_label).astype(int)
-        drop_cols = [c for c in (target_col, LINEAGE_ROW_COL, LINEAGE_ID_COL) if c in df.columns]
+            y = (y_raw.astype(str).str.strip().str.lower() == positive_label).astype(
+                int
+            )
+        drop_cols = [
+            c for c in (target_col, LINEAGE_ROW_COL, LINEAGE_ID_COL) if c in df.columns
+        ]
         X = df.drop(columns=drop_cols)
         frames[split] = (X, y)
     return frames["train"], frames["val"], frames["test"]

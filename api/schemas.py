@@ -16,6 +16,7 @@ restarts.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -55,16 +56,20 @@ class CKDRequest(BaseModel):
 
 
 class CKDRequestNative(BaseModel):
-    """21 NHANES-native fields (D-05 native schema for /v2).
+    """23 NHANES-native fields (D-05 native schema for /v2).
 
-    The 16 numerics are ``float | None`` so blanks flow to the fitted
-    native pipeline imputers, mirroring ``CKDRequest``. The 5
+    The 20 numerics are ``float | None`` so blanks flow to the fitted
+    native pipeline imputers, mirroring ``CKDRequest``. The 3
     categoricals are NHANES-coded ``Literal`` vocabularies verified
     against the locked derived CSV (observed codes: RIAGENDR {1,2},
-    RIDRETH1 {1..5}, DMDEDUC2 {1..5,9}, DIQ010 {1,2,3}, MCQ035 {1,2,9}),
+    DMDEDUC2 {1..5,9}, DIQ010 {1,2,3}),
     so bad values fail fast with an automatic 422 before inference.
     No ``ge``/``le`` range bounds per the established raw-extremes
     rationale.
+
+    ``RIDRETH1`` and ``MCQ035`` were removed: both are US-specific and
+    unfillable by a non-NHANES clinician, and the measured cost of
+    dropping them is inside noise (dev dROC -0.0015, holdout -0.0031).
     """
 
     RIDAGEYR: float | None
@@ -83,11 +88,13 @@ class CKDRequestNative(BaseModel):
     BMXBMI: float | None
     BPXOSY1: float | None
     BPXODI1: float | None
+    LBXRDW: float | None
+    LBDSUASI: float | None
+    LBXSAL: float | None
+    LBXSGTSI: float | None
     RIAGENDR: Literal[1, 2]
-    RIDRETH1: Literal[1, 2, 3, 4, 5]
     DMDEDUC2: Literal[1, 2, 3, 4, 5, 9]
     DIQ010: Literal[1, 2, 3]
-    MCQ035: Literal[1, 2, 9]
 
 
 class NativeBatchItem(CKDRequestNative):
@@ -132,3 +139,21 @@ class BatchPredictionResponse(BaseModel):
     predictions: list[BatchPredictionItem]
     count: int
     model_version: str
+
+
+# ---------------------------------------------------------------------------
+# Prediction history schemas (Phase 8-03)
+# ---------------------------------------------------------------------------
+
+
+class PredictionHistoryOut(BaseModel):
+    """One historical prediction row for the authenticated user's history."""
+
+    id: int
+    model_version: str
+    prediction: int
+    probability: float
+    created_at: datetime | None = None
+
+    class Config:
+        from_attributes = True

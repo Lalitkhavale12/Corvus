@@ -1,4 +1,5 @@
 """Tests for Phase 2 registry lifecycle (FR-2.4, FR-3.1-FR-3.3, D-03/D-06/D-07)."""
+
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -8,7 +9,11 @@ from src.evaluation import evaluate as eval_mod
 def _runs():
     return [
         {"run_id": "a", "run_name": "xgb", "metrics": {"roc_auc": 0.91}},
-        {"run_id": "b", "run_name": "logistic-regression", "metrics": {"roc_auc": 0.97}},
+        {
+            "run_id": "b",
+            "run_name": "logistic-regression",
+            "metrics": {"roc_auc": 0.97},
+        },
         {"run_id": "c", "run_name": "rf", "metrics": {"roc_auc": 0.88}},
     ]
 
@@ -70,8 +75,7 @@ def test_no_production_transition():
     client = MagicMock()
     eval_mod.apply_registry_stages(client, "corvus-ckd", "3", ["1", "2"])
     stages = [
-        c.kwargs["stage"]
-        for c in client.transition_model_version_stage.call_args_list
+        c.kwargs["stage"] for c in client.transition_model_version_stage.call_args_list
     ]
     assert "Production" not in stages  # D-06: separate explicit step
     assert set(stages) == {"Staging", "Archived"}  # exact stage strings

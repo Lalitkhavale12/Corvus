@@ -109,7 +109,9 @@ def run_experiment(activation_name: str = "sigmoid") -> dict:
 def main():
     for activation_name in ACTIVATIONS:
         result = run_experiment(activation_name)
-        print(f"TRAINED mlp-{activation_name} roc_auc={result['metrics']['roc_auc']:.4f}")
+        print(
+            f"TRAINED mlp-{activation_name} roc_auc={result['metrics']['roc_auc']:.4f}"
+        )
 
 
 if __name__ == "__main__":

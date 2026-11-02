@@ -16,6 +16,7 @@ Exit contract: invoking this runner as a script exits 0 when the
 configured raw CSV satisfies all gates, non-zero otherwise — and never with
 an unhandled traceback for data failures (the gate fails closed).
 """
+
 from __future__ import annotations
 
 import json
@@ -76,7 +77,10 @@ def _check_row_bounds(df, cfg) -> bool:
 
 
 def _check_no_exact_duplicates(df, cfg) -> bool:
-    if cfg.get("validation", {}).get("fail_on_duplicates", False) and df.duplicated().any():
+    if (
+        cfg.get("validation", {}).get("fail_on_duplicates", False)
+        and df.duplicated().any()
+    ):
         n_dup = int(df.duplicated().sum())
         log.warning(f"Raw-data gate found {n_dup} exact-duplicate rows")
         return False

@@ -27,6 +27,8 @@ pydantic>=2.6
 psycopg2-binary>=2.9
 streamlit>=1.32
 python-multipart>=0.0.18
+prometheus-client>=0.20
+plotly>=5.0
 
 # --- Testing ---
 pytest>=8.0
@@ -37,10 +39,11 @@ alembic>=1.13
 bcrypt>=4.1
 python-jose[cryptography]>=3.3
 PyJWT>=2.9
+email-validator>=2.0
 
-# --- Later phases (uncomment as needed) ---
-# evidently>=0.4          # Phase 8: drift detection
-# apache-airflow>=2.8     # Phase 9: retraining orchestration
-# prometheus-client>=0.20 # Phase 7: monitoring
+# --- Later phases ---
+evidently>=0.4          # Phase 5: drift detection
+apache-airflow>=2.8     # Phase 5: retraining orchestration
+prometheus-client>=0.20 # Phase 4: monitoring
 
 black

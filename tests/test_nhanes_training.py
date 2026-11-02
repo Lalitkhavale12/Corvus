@@ -46,8 +46,11 @@ def test_native_pipeline_shape(synthetic_nhanes_df):
     df = _native_frame(synthetic_nhanes_df)
     assert_quarantine(df)  # clean training frame passes the gate
     numeric_cols, categorical_cols = get_nhanes_column_lists()
-    assert len(numeric_cols) == 16
-    assert len(categorical_cols) == 5
+    assert len(numeric_cols) == 20
+    assert len(categorical_cols) == 3
+    # US-only fields are unfillable outside NHANES and must stay out of the
+    # contract once dropped (measured cost was inside noise).
+    assert not {"RIDRETH1", "MCQ035"} & set(numeric_cols + categorical_cols)
     pipe = build_native_pipeline(numeric_cols, categorical_cols)
     from sklearn.pipeline import Pipeline as SkPipeline
 
@@ -56,6 +59,32 @@ def test_native_pipeline_shape(synthetic_nhanes_df):
     X = df[numeric_cols + categorical_cols]
     out = _dense(pipe.fit_transform(X))
     assert not np.isnan(out).any()
+
+
+def test_engineered_features_derived_inside_pipeline(synthetic_nhanes_df):
+    """Raw frame stays raw; the pipeline is what expands it.
+
+    The serving contract must remain the raw allow-list, so the training
+    frame must never carry the engineered columns itself.
+    """
+    from src.feature_engineering.nhanes_features import ENGINEERED_COLS
+
+    df = _native_frame(synthetic_nhanes_df)
+    numeric_cols, categorical_cols = get_nhanes_column_lists()
+    X = df[numeric_cols + categorical_cols]
+    assert not (set(ENGINEERED_COLS) & set(X.columns)), "raw frame must stay raw"
+
+    pipe = build_native_pipeline(numeric_cols, categorical_cols)
+    assert "features" in pipe.named_steps
+    out = _dense(pipe.fit_transform(X))
+    assert not np.isnan(out).any()
+
+    # The engineered names reach the numeric block of the ColumnTransformer,
+    # and the transform is wider than the raw numeric allow-list. Exact width
+    # is left to the encoder (one-hot arity is fixture-dependent).
+    numeric_block = pipe.named_steps["preprocessor"].transformers_[0][2]
+    assert set(ENGINEERED_COLS) <= set(numeric_block)
+    assert out.shape[1] > len(numeric_cols)
 
 
 def test_claim2_native(synthetic_nhanes_df, tmp_mlflow_store, tmp_path):
@@ -176,6 +205,34 @@ def test_bootstrap_ci_determinism_and_bounds(synthetic_nhanes_df):
     auc = roc_auc_score(y, proba)
     assert lo <= auc <= hi
     assert lo <= hi
+
+
+def test_threshold_for_recall_picks_most_specific_cutoff():
+    # Ties are broken toward the highest cut-off: with proba descending and
+    # 2 of 2 positives found, the correct answer is 0.8 (the lowest proba
+    # still keeping recall at 1.0), never 0.6 which flags the negatives too.
+    proba = np.array([0.9, 0.8, 0.6, 0.4])
+    y = np.array([1, 1, 0, 0])
+    assert nhanes_mod.threshold_for_recall(y, proba, 1.0) == 0.8
+
+
+def test_threshold_for_recall_reaches_partial_target():
+    proba = np.array([0.9, 0.8, 0.6, 0.4])
+    y = np.array([1, 1, 0, 0])
+    # Only half of the two positives needed: the top row alone already
+    # reaches 0.5 recall, so the most specific cut-off is 0.9.
+    assert nhanes_mod.threshold_for_recall(y, proba, 0.5) == 0.9
+    # With the positives ranked lower, 0.5 recall needs the second hit -> 0.8.
+    proba_shifted = np.array([0.9, 0.8, 0.6, 0.4])
+    y_shifted = np.array([0, 1, 1, 0])
+    assert nhanes_mod.threshold_for_recall(y_shifted, proba_shifted, 0.5) == 0.8
+
+
+def test_threshold_for_recall_rejects_degenerate_input():
+    with pytest.raises(ValueError):
+        nhanes_mod.threshold_for_recall(np.array([0, 0]), np.array([0.2, 0.3]), 0.8)
+    with pytest.raises(ValueError):
+        nhanes_mod.threshold_for_recall(np.array([1, 0]), np.array([0.2, 0.3]), 0.0)
 
 
 def test_no_recorded_uci_auc_reference():

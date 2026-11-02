@@ -17,6 +17,7 @@ If you're using a different dataset, only this file and preprocess.py's
 NUMERIC_COLS/CATEGORICAL_COLS need to change — config.yaml holds the paths
 and target column so the rest of the pipeline doesn't need touching.
 """
+
 from pathlib import Path
 import pandas as pd
 
@@ -45,7 +46,7 @@ def load_raw_data(raw_path: str | None = None) -> pd.DataFrame:
     df = df.replace(r"^\s*\?\s*$", pd.NA, regex=True)
     for col in df.select_dtypes(include=["object", "string"]).columns:
         df[col] = df[col].astype(str).str.strip()
-        df[col] = df[col].replace({"nan": pd.NA, "": pd.NA})
+        df[col] = df[col].replace({"nan": pd.NA, "": pd.NA, "<NA>": pd.NA})
 
     log.info(f"Loaded raw data: {df.shape[0]} rows x {df.shape[1]} cols from {path}")
     return df

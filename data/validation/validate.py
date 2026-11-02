@@ -3,6 +3,7 @@ Backward-compatibility shim: the validation runner now lives at
 ``src.validation.validate``. This file keeps the old CLI entry point
 (``python data/validation/validate.py``) working by re-exporting it.
 """
+
 import sys
 from pathlib import Path
 

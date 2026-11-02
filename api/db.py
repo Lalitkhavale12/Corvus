@@ -59,6 +59,7 @@ class PredictionLog(Base):
     prediction: Mapped[int] = mapped_column(Integer)
     probability: Mapped[float] = mapped_column(Float)
     model_version: Mapped[str] = mapped_column(String(32))
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
@@ -75,12 +76,15 @@ Session = sessionmaker()
 
 
 class PredictionLogV2(Base):
-    """Full v2 prediction record: 21 native fields + outcome + version.
+    """Full v2 prediction record: 23 native fields + outcome + version.
 
     Separate ``predictions_v2`` table so native rows never touch the v1
     ``predictions`` table (T-07-11); ``PredictionLog`` stays byte-identical
     and ``Base.metadata.create_all`` picks this table up with no
     ``create_tables`` change.
+
+    ``RIDRETH1``/``MCQ035`` stay as nullable columns for rows written
+    before they were dropped from the request schema.
     """
 
     __tablename__ = "predictions_v2"
@@ -102,14 +106,19 @@ class PredictionLogV2(Base):
     BMXBMI: Mapped[float | None] = mapped_column(Float, nullable=True)
     BPXOSY1: Mapped[float | None] = mapped_column(Float, nullable=True)
     BPXODI1: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBXRDW: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBDSUASI: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBXSAL: Mapped[float | None] = mapped_column(Float, nullable=True)
+    LBXSGTSI: Mapped[float | None] = mapped_column(Float, nullable=True)
     RIAGENDR: Mapped[str] = mapped_column(String(16))
-    RIDRETH1: Mapped[str] = mapped_column(String(16))
+    RIDRETH1: Mapped[str | None] = mapped_column(String(16), nullable=True)
     DMDEDUC2: Mapped[str] = mapped_column(String(16))
     DIQ010: Mapped[str] = mapped_column(String(16))
-    MCQ035: Mapped[str] = mapped_column(String(16))
+    MCQ035: Mapped[str | None] = mapped_column(String(16), nullable=True)
     prediction: Mapped[int] = mapped_column(Integer)
     probability: Mapped[float] = mapped_column(Float)
     model_version: Mapped[str] = mapped_column(String(32))
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime,
         server_default=func.now(),

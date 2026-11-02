@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 import os
+import sys
 from logging.config import fileConfig
+
+# Make the project root importable so ``src.database`` and ``src.auth`` resolve
+# without needing PYTHONPATH (which would shadow the ``alembic`` package with
+# this repo's ``alembic/`` migrations directory).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool

@@ -125,3 +125,96 @@ def synthetic_nhanes_df():
     df.loc[0, NHANES_NUMERIC_COLS[0]] = None
     df.loc[1, NHANES_CATEGORICAL_COLS[0]] = None
     return df
+
+
+# ---------------------------------------------------------------------------
+# Phase 8-03: authenticated test client fixture
+# ---------------------------------------------------------------------------
+
+import numpy as np  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
+import api.db as db_mod  # noqa: E402
+from api.app import app  # noqa: E402
+
+
+class _StubEstimator:  # noqa: E402
+    n_features_in_ = 4
+
+    def predict(self, X):
+        return [1] * len(X)
+
+    def predict_proba(self, X):
+        return [[0.2, 0.8]] * len(X)
+
+
+class _StubPipeline:  # noqa: E402
+    def transform(self, df):
+        return np.zeros((len(df), 4))
+
+
+@pytest.fixture
+def auth_client(monkeypatch):
+    """TestClient with auth headers and stubbed model loader.
+
+    Creates a test user in a scratch SQLite DB, mints a JWT, and yields an
+    authenticated TestClient. The engine is disposed after the test to release
+    file locks on Windows.
+    """
+    import os
+
+    import src.database as _db_module  # noqa: E402
+
+    _db_module._engine = None  # type: ignore[attr-defined]
+    _db_module._SessionLocal = None  # type: ignore[attr-defined]
+
+    os.environ["DATABASE_URL"] = "sqlite:///./test_auth_client.db"
+    db_path = "./test_auth_client.db"
+    try:
+        if os.path.exists(db_path):
+            os.remove(db_path)
+    except PermissionError:
+        pass  # File locked by a previous test; tables are idempotent
+
+    from src.database import Base, get_engine, get_session_local  # noqa: E402
+    from src.auth.auth import create_user  # noqa: E402
+    from src.auth.schemas import UserRegister  # noqa: E402
+    from src.auth.security import create_access_token  # noqa: E402
+
+    engine = get_engine()
+    Base.metadata.create_all(bind=engine)
+
+    SessionLocal = get_session_local()
+    db = SessionLocal()
+    user = create_user(
+        db,
+        UserRegister(email="authtest@example.com", password="securepass123", role="patient"),
+    )
+    if user is None:
+        # User already exists from a previous test run; fetch their id
+        from src.auth.auth import get_user_by_email  # noqa: E402
+
+        user = get_user_by_email(db, "authtest@example.com")
+    user_id = user.id
+    user_role = user.role
+    db.commit()
+    db.close()
+
+    token = create_access_token({"sub": str(user_id), "role": user_role})
+
+    monkeypatch.setattr(
+        "api.app.model_loader.load_serving_artifacts",
+        lambda version: (_StubEstimator(), _StubPipeline(), "test-run-id", "9"),
+    )
+
+    with TestClient(app, headers={"Authorization": f"Bearer {token}"}) as client:
+        yield client
+
+    engine.dispose()
+    _db_module._engine = None
+    _db_module._SessionLocal = None
+    if os.path.exists(db_path):
+        try:
+            os.remove(db_path)
+        except PermissionError:
+            pass
