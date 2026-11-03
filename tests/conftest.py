@@ -6,13 +6,21 @@ tracking-URI fixture. Never touches real data/ or real mlruns/.
 
 import csv
 import io
+import os
 
 import mlflow
 import pandas as pd
 import pytest
 
-from src.preprocessing.preprocess import get_column_lists
-from src.preprocessing.preprocess_nhanes import QUARANTINE_11, get_nhanes_column_lists
+# Tests must never depend on a developer .env or a real secret. A CI runner
+# has neither, and the API refuses to start without a key.
+os.environ.setdefault("SECRET_KEY", "test-secret-key-not-used-anywhere-else")
+
+from src.preprocessing.preprocess import get_column_lists  # noqa: E402
+from src.preprocessing.preprocess_nhanes import (  # noqa: E402
+    QUARANTINE_11,
+    get_nhanes_column_lists,
+)
 
 NUMERIC_COLS, CATEGORICAL_COLS = get_column_lists()
 NHANES_NUMERIC_COLS, NHANES_CATEGORICAL_COLS = get_nhanes_column_lists()
@@ -192,6 +200,16 @@ def _hermetic_model_loader(monkeypatch):
         "load_v2_threshold",
         _or_stub(ml.load_v2_threshold, lambda version: 0.5),
     )
+
+
+@pytest.fixture(autouse=True)
+def _reset_login_throttle():
+    """Keep the process-local login counter from leaking across tests."""
+    import api.app as app_mod
+
+    app_mod._login_attempts.clear()
+    yield
+    app_mod._login_attempts.clear()
 
 
 @pytest.fixture

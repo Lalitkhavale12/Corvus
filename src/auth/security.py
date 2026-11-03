@@ -34,9 +34,25 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
 
 
+def get_secret_key() -> str:
+    """JWT signing key, or a hard failure.
+
+    There is deliberately no baked-in default: a published fallback key
+    would let anyone forge tokens against a deployment that forgot to set
+    SECRET_KEY. Unset means the process must not serve.
+    """
+    key = str(get_settings().get("secret_key", "") or "").strip()
+    if not key:
+        raise RuntimeError(
+            "SECRET_KEY is not set: export it before starting the API "
+            "(e.g. SECRET_KEY=$(python -c 'import secrets;print(secrets.token_urlsafe(48))'))"
+        )
+    return key
+
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     settings = get_settings()
-    secret_key = settings.get("secret_key", "corvus-dev-secret-change-in-production")
+    secret_key = get_secret_key()
     algorithm = settings.get("algorithm", "HS256")
     expire_minutes = int(settings.get("access_token_expire_minutes", 30))
 
@@ -52,7 +68,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 def decode_token(token: str) -> TokenData | None:
     settings = get_settings()
-    secret_key = settings.get("secret_key", "corvus-dev-secret-change-in-production")
+    secret_key = get_secret_key()
     algorithm = settings.get("algorithm", "HS256")
     try:
         payload = jwt.decode(token, secret_key, algorithms=[algorithm])

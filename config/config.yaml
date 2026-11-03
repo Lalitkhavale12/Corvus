@@ -78,6 +78,6 @@ db:
   database_url: ""
 
 auth:
-  secret_key: "${SECRET_KEY:corvus-dev-secret-change-in-production}"
+  secret_key: "${SECRET_KEY:}"
   algorithm: "HS256"
   access_token_expire_minutes: 30

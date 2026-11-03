@@ -19,8 +19,10 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_DB_PATH.as_posix()}"
 if _DB_PATH.exists():
     _DB_PATH.unlink()
 
+import pytest
 from fastapi.testclient import TestClient
 
+from api import app as app_mod
 from api.app import app
 from src.database import Base, get_engine
 
@@ -145,3 +147,57 @@ def test_register_doctor():
     data = r.json()
     assert data["email"] == DOCTOR_PAYLOAD["email"]
     assert data["role"] == "doctor"
+
+
+# ---------------------------------------------------------------------------
+# Security hardening: no default signing key, throttled login, CORS override
+# ---------------------------------------------------------------------------
+
+
+def test_startup_refuses_to_run_without_secret_key(monkeypatch):
+    """An unset SECRET_KEY must stop the process, not fall back to a default."""
+    from src.auth import security
+    from src.utils import config as config_mod
+
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    config_mod.load_config.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="SECRET_KEY is not set"):
+            security.get_secret_key()
+    finally:
+        monkeypatch.setenv("SECRET_KEY", "test-secret-key-not-used-anywhere-else")
+        config_mod.load_config.cache_clear()
+
+
+def test_login_is_throttled_after_five_failures():
+    bad = {"email": "nobody@example.com", "password": "wrongwrongwrong"}
+    for _ in range(app_mod.LOGIN_MAX_ATTEMPTS):
+        assert client.post("/auth/login", json=bad).status_code == 401
+    blocked = client.post("/auth/login", json=bad)
+    assert blocked.status_code == 429, blocked.text
+    assert blocked.headers["Retry-After"] == str(app_mod.LOGIN_WINDOW_SECONDS)
+
+
+def test_successful_login_resets_the_attempt_counter():
+    payload = {
+        "email": f"reset-{os.getpid()}@example.com",
+        "password": "securepass123",
+        "role": "patient",
+    }
+    assert client.post("/auth/register", json=payload).status_code == 201
+    bad = {"email": payload["email"], "password": "wrongwrongwrong"}
+    for _ in range(app_mod.LOGIN_MAX_ATTEMPTS - 1):
+        assert client.post("/auth/login", json=bad).status_code == 401
+    ok = {"email": payload["email"], "password": payload["password"]}
+    assert client.post("/auth/login", json=ok).status_code == 200
+    assert app_mod._login_attempts == {}
+
+
+def test_cors_origins_come_from_the_environment(monkeypatch):
+    monkeypatch.setenv("CORS_ORIGINS", "https://corvus.example, https://app.example")
+    assert app_mod._cors_origins() == ["https://corvus.example", "https://app.example"]
+
+
+def test_cors_origins_fall_back_to_localhost_defaults(monkeypatch):
+    monkeypatch.delenv("CORS_ORIGINS", raising=False)
+    assert app_mod._cors_origins() == app_mod._DEFAULT_CORS_ORIGINS

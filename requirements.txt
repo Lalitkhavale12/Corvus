@@ -27,6 +27,7 @@ pydantic>=2.6
 psycopg2-binary>=2.9
 streamlit>=1.32
 python-multipart>=0.0.18
+python-dotenv>=1.0       # loads the gitignored .env for local dev
 prometheus-client>=0.20
 plotly>=5.0
 

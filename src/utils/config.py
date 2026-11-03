@@ -12,6 +12,16 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
 
+# .env holds the local dev secrets (SECRET_KEY and friends) and is
+# gitignored. Deployment sets real environment variables instead; a missing
+# .env is normal and not an error.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(PROJECT_ROOT / ".env")
+except ImportError:  # python-dotenv ships with uvicorn[standard]
+    pass
+
 _ENV_VAR_RE = re.compile(r"\$\{([^}:]+)(?::([^}]*))?\}")
 
 

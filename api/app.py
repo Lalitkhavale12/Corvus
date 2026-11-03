@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import datetime
 import io
+import os
 import time
 from contextlib import asynccontextmanager
 from typing import List
@@ -68,7 +69,7 @@ from src.auth.schemas import (
     UserOut,
     UserRegister,
 )
-from src.auth.security import create_access_token
+from src.auth.security import create_access_token, get_secret_key
 from src.database import Base, get_db, get_engine
 from src.preprocessing.preprocess import (
     LINEAGE_ID_COL,
@@ -134,6 +135,9 @@ MAX_BATCH_ROWS = 10000
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Pin version, load artifacts, bind the log store — fail loud on skew."""
+    # Refuse to serve without a signing key: an unset SECRET_KEY would
+    # otherwise mean tokens signed with a published default.
+    get_secret_key()
     version = model_loader.resolve_pinned_version()
     model, pipeline, run_id, version = model_loader.load_serving_artifacts(version)
     app.state.model_version = version
@@ -179,21 +183,71 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Corvus CKD Prediction API", lifespan=lifespan)
 
+# CORS_ORIGINS (comma separated) wins; the localhost defaults keep the dev
+# server and the built nginx image working out of the box.
+_DEFAULT_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+]
+
+
+def _cors_origins(raw: str | None = None) -> list[str]:
+    """Allowed browser origins: explicit CORS_ORIGINS, else the dev list."""
+    if raw is None:
+        raw = os.environ.get("CORS_ORIGINS", "")
+    parsed = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return parsed or list(_DEFAULT_CORS_ORIGINS)
+
+
+CORS_ORIGINS = _cors_origins()
+
 app.add_middleware(
     CORSMiddleware,
-    # :3000 is the built nginx image; :5173/:5174 are the Vite dev server.
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------------------------------------------------------------------
+# Login throttle (brute-force guard)
+# ---------------------------------------------------------------------------
+
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 60
+_login_attempts: dict[str, list[float]] = {}
+
+
+def _throttle_login(client: str) -> None:
+    """Reject the 6th login attempt within a minute from one client.
+
+    ponytail: process-local sliding window, so it resets on restart and does
+    not span replicas. Move the counter to Redis when the API runs more than
+    one instance; a shared store is the only way the limit still means
+    something behind a load balancer.
+    """
+    now = time.monotonic()
+    recent = [
+        seen for seen in _login_attempts.get(client, []) if now - seen < LOGIN_WINDOW_SECONDS
+    ]
+    if len(recent) >= LOGIN_MAX_ATTEMPTS:
+        _login_attempts[client] = recent
+        raise HTTPException(
+            status_code=429,
+            detail="too many login attempts, try again later",
+            headers={"Retry-After": str(LOGIN_WINDOW_SECONDS)},
+        )
+    recent.append(now)
+    _login_attempts[client] = recent
+
+
+def _clear_login_throttle(client: str) -> None:
+    _login_attempts.pop(client, None)
 
 
 @app.middleware("http")
@@ -629,8 +683,10 @@ def register(user_in: UserRegister, db: Session = Depends(get_db)):
 
 
 @app.post("/auth/login", response_model=Token)
-def login(user_in: UserLogin, db: Session = Depends(get_db)):
+def login(user_in: UserLogin, request: Request, db: Session = Depends(get_db)):
     """Authenticate with email + password, return JWT access token."""
+    client = request.client.host if request.client else "unknown"
+    _throttle_login(client)
     user = authenticate_user(db, user_in.email, user_in.password)
     if not user:
         raise HTTPException(
@@ -638,6 +694,7 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
             detail="incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    _clear_login_throttle(client)
     access_token = create_access_token({"sub": str(user.id), "role": user.role})
     return Token(access_token=access_token)
 
