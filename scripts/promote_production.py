@@ -1,11 +1,14 @@
-"""Phase 3 - promote corvus-ckd v9 Staging to Production (D-01 first act).
+"""Promote a corvus-ckd version to Production, archiving the outgoing one.
 
-One-shot script: transitions version 9 to Production, archiving nothing new
-since Production is empty. Stage mutation is audited by the MLflow registry
-and reversible only via an explicit second transition.
+This is the human half of Claim 5: the retraining DAG only recommends a
+challenger, the registry stage moves here in one audited step. Archiving
+keeps every retired version in the registry, so a rollback is a second
+transition rather than a retrain.
 
-Invoked as ``.\\venv\\python.exe scripts/promote_production.py`` from the
-project root.
+Usage::
+
+    .\\venv\\python.exe scripts/promote_production.py 17
+    .\\venv\\python.exe scripts/promote_production.py        # config pin
 """
 
 import os
@@ -29,10 +32,21 @@ log = get_logger()
 os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
 
 REGISTERED_MODEL_NAME = "corvus-ckd"
-PROMOTE_VERSION = "9"
+
+
+def resolve_version(argv: list[str]) -> str:
+    """Version from argv, else the pinned serving version.
+
+    Defaulting to the pin means the command is a no-op repeat after a
+    completed promotion instead of a second, different transition.
+    """
+    if len(argv) > 1 and argv[1].strip():
+        return argv[1].strip()
+    return str(load_config()["api"]["v2_pinned_version"])
 
 
 def main() -> int:
+    version = None
     try:
         cfg = load_config()
         tracking_uri = os.environ.get(
@@ -40,10 +54,11 @@ def main() -> int:
             str(PROJECT_ROOT / cfg["mlflow"]["tracking_uri"]),
         )
         mlflow.set_tracking_uri(tracking_uri)
+        version = resolve_version(sys.argv)
         client = MlflowClient()
         client.transition_model_version_stage(
             name=REGISTERED_MODEL_NAME,
-            version=PROMOTE_VERSION,
+            version=version,
             stage="Production",
             archive_existing_versions=True,
         )
@@ -51,7 +66,8 @@ def main() -> int:
         print(f"PROMOTION ERROR: {exc}")
         return 1
     print(
-        f"PROMOTED {REGISTERED_MODEL_NAME} version={PROMOTE_VERSION} stage=Production"
+        f"PROMOTED {REGISTERED_MODEL_NAME} version={version} stage=Production "
+        "(previous versions archived, still resolvable for rollback)"
     )
     return 0
 
