@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sign In — Corvus CKD Risk Platform</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-tertiary-fixed-variant": "#93000b",
+            "surface-dim": "#cbdbf5",
+            "on-primary-fixed": "#001453",
+            "on-tertiary-fixed": "#410002",
+            "secondary-fixed-dim": "#68dba9",
+            "surface-container-low": "#eff4ff",
+            "surface-variant": "#d3e4fe",
+            "on-secondary": "#ffffff",
+            "secondary": "#006c4a",
+            "on-primary-container": "#a8b8ff",
+            "primary-fixed-dim": "#b8c4ff",
+            "tertiary-fixed-dim": "#ffb4ab",
+            "surface-tint": "#3755c3",
+            "on-primary-fixed-variant": "#173bab",
+            "primary-container": "#1e40af",
+            "error": "#ba1a1a",
+            "on-tertiary-container": "#ffa399",
+            "secondary-container": "#82f5c1",
+            "on-secondary-fixed": "#002114",
+            "on-secondary-fixed-variant": "#005137",
+            "primary": "#00288e",
+            "surface": "#f8f9ff",
+            "inverse-primary": "#b8c4ff",
+            "error-container": "#ffdad6",
+            "tertiary-fixed": "#ffdad6",
+            "on-background": "#0b1c30",
+            "surface-container-lowest": "#ffffff",
+            "on-primary": "#ffffff",
+            "on-error": "#ffffff",
+            "on-error-container": "#93000a",
+            "on-surface-variant": "#444653",
+            "surface-container-highest": "#d3e4fe",
+            "on-secondary-container": "#00714e",
+            "tertiary-container": "#9b000d",
+            "outline-variant": "#c4c5d5",
+            "primary-fixed": "#dde1ff",
+            "outline": "#757684",
+            "tertiary": "#700006",
+            "background": "#f8f9ff",
+            "surface-container": "#e5eeff",
+            "on-tertiary": "#ffffff",
+            "inverse-surface": "#213145",
+            "surface-bright": "#f8f9ff",
+            "surface-container-high": "#dce9ff",
+            "on-surface": "#0b1c30",
+            "inverse-on-surface": "#eaf1ff",
+            "secondary-fixed": "#85f8c4"
+          },
+          borderRadius: {
+            DEFAULT: "0.125rem",
+            lg: "0.25rem",
+            xl: "0.5rem",
+            full: "0.75rem"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body class="min-h-full bg-background font-sans text-on-surface antialiased flex flex-col justify-between selection:bg-primary-container selection:text-surface-container-lowest">
+<!-- Minimal Utility Header for Focused Clinical Task View -->
+<header class="w-full border-b border-outline-variant bg-surface-container-lowest px-4 py-3 sm:px-8">
+<div class="mx-auto flex max-w-6xl items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="flex h-8 w-8 items-center justify-center rounded bg-primary-container text-surface-container-lowest">
+<img alt="Corvus Health Logo" class="h-6 w-6 object-contain" data-alt="Corvus CKD Risk Platform clinical logo mark, geometric medical raven cross emblem in clinical blue #1E40AF with high-contrast precision medical aesthetics." src="{{DATA:IMAGE:IMAGE_2}}"/>
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold uppercase tracking-wider text-primary">Corvus Health</span>
+<span class="text-[11px] text-on-surface-variant font-mono">CKD Engine v2.4-clinical</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden sm:flex items-center gap-2 border-r border-outline-variant pr-4">
+<span class="inline-block h-2 w-2 rounded-full bg-secondary"></span>
+<span class="text-xs font-mono font-medium text-secondary">POSTGRES ENCLAVE ACTIVE</span>
+</div>
+<a class="inline-flex items-center gap-1.5 rounded border border-outline-variant bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container hover:text-primary" href="#it-support">
+<span class="material-symbols-outlined text-[16px]">contact_support</span>
+<span>IT Helpdesk</span>
+</a>
+</div>
+</div>
+</header>
+<!-- Main Focus Container -->
+<main class="flex flex-1 items-center justify-center p-4 sm:p-6 lg:p-8">
+<div class="w-full max-w-[520px]">
+<!-- Central Authentication Card -->
+<div class="rounded-lg border border-outline-variant bg-surface-container-lowest shadow-sm">
+<!-- Brand Header Section -->
+<div class="border-b border-outline-variant px-6 pt-7 pb-6 sm:px-8">
+<div class="flex flex-col items-center text-center">
+<div class="mb-3 flex h-14 w-14 items-center justify-center rounded-lg border border-outline-variant bg-surface-container-low p-2.5">
+<img alt="Corvus Health Emblem" class="h-10 w-10 object-contain" data-alt="Corvus CKD Risk Platform clinical logo mark, geometric medical raven cross emblem in clinical blue #1E40AF surrounded by sterile clinical high key white backdrop." src="{{DATA:IMAGE:IMAGE_2}}"/>
+</div>
+<h1 class="text-xl font-bold tracking-tight text-on-surface sm:text-2xl">
+              Corvus CKD Risk Platform
+            </h1>
+<p class="mt-1 text-sm font-medium text-on-surface-variant">
+              Clinical Console &amp; Patient Health Portal
+            </p>
+<!-- Security Badge -->
+<div class="mt-4 flex items-center justify-center gap-1.5 rounded border border-outline-variant bg-surface-container-low px-3 py-1.5 text-center">
+<span class="material-symbols-outlined text-[15px] text-secondary">verified_user</span>
+<span class="text-[11px] font-medium leading-none tracking-tight text-on-surface-variant">
+                HIPAA Compliant Environment — Local Docker Compose / PostgreSQL Secure Enclave
+              </span>
+</div>
+</div>
+<!-- Role Selection Toggle -->
+<div class="mt-6">
+<div aria-label="Portal Role Selection" class="flex h-10 w-full items-center rounded border border-outline-variant bg-surface-container-low p-1" role="radiogroup">
+<button aria-pressed="true" class="flex flex-1 h-full items-center justify-center rounded px-3 text-xs font-semibold tracking-wide transition-all duration-150 bg-surface-container-lowest text-primary shadow-sm" id="role-doctor-btn" onclick="selectRole('doctor')" type="button">
+<span class="material-symbols-outlined mr-1.5 text-[16px]">stethoscope</span>
+                Doctor / Clinician
+              </button>
+<button aria-pressed="false" class="flex flex-1 h-full items-center justify-center rounded px-3 text-xs font-semibold tracking-wide transition-all duration-150 text-on-surface-variant hover:text-on-surface" id="role-patient-btn" onclick="selectRole('patient')" type="button">
+<span class="material-symbols-outlined mr-1.5 text-[16px]">person</span>
+                Patient Portal
+              </button>
+</div>
+<!-- Dynamic Helper Text -->
+<p class="mt-2.5 text-center text-xs leading-relaxed text-on-surface-variant" id="role-helper-text">
+              Sign in to access patient roster, triage CKD predictions, and run /v2/predict models.
+            </p>
+</div>
+</div>
+<!-- Authentication Form -->
+<form class="space-y-4 px-6 py-6 sm:px-8" onsubmit="event.preventDefault();">
+<!-- Email Input -->
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-on-surface" for="work-email">
+              Work Email Address
+            </label>
+<div class="relative mt-1.5 flex items-stretch rounded">
+<input autocomplete="email" class="w-full rounded border border-outline-variant bg-surface-container-lowest px-3.5 py-2.5 pr-10 text-sm text-on-surface placeholder:text-outline focus:border-primary-container focus:outline-none focus:ring-1 focus:ring-primary-container font-mono sm:text-sm" id="work-email" placeholder="doctor@corvushealth.org" required="" type="email" value="dr.jenkins@corvushealth.org"/>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">mail</span>
+</div>
+</div>
+</div>
+<!-- Password Input -->
+<div>
+<div class="flex items-center justify-between">
+<label class="block text-xs font-semibold uppercase tracking-wider text-on-surface" for="password">
+                Password
+              </label>
+<button class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline focus:outline-none" onclick="togglePasswordVisibility()" type="button">
+<span class="material-symbols-outlined text-[15px]" id="pwd-icon">visibility</span>
+<span id="pwd-text">Show</span>
+</button>
+</div>
+<div class="relative mt-1.5 flex items-stretch rounded">
+<input autocomplete="current-password" class="w-full rounded border border-outline-variant bg-surface-container-lowest px-3.5 py-2.5 pr-10 text-sm text-on-surface placeholder:text-outline focus:border-primary-container focus:outline-none focus:ring-1 focus:ring-primary-container font-mono tracking-widest sm:text-sm" id="password" placeholder="••••••••••••" required="" type="password" value="••••••••••••"/>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">lock</span>
+</div>
+</div>
+</div>
+<!-- Workstation Persistence & Forgot Pass -->
+<div class="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between">
+<label class="flex items-center gap-2 cursor-pointer select-none">
+<input checked="" class="h-4 w-4 rounded border-outline-variant text-primary-container focus:ring-primary-container focus:ring-offset-0" type="checkbox"/>
+<span class="text-xs text-on-surface font-normal">
+                Remember my workstation for 12 hours
+              </span>
+</label>
+<a class="text-xs font-medium text-primary hover:underline self-start sm:self-auto" href="#reset">
+              Forgot credentials or need IT provisioning?
+            </a>
+</div>
+<!-- Primary Submit CTA -->
+<div class="pt-2">
+<button class="flex h-11 w-full items-center justify-center rounded bg-primary-container px-4 text-sm font-semibold text-surface-container-lowest shadow-sm hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-primary-container focus:ring-offset-2 active:scale-[0.99] transition-all" id="submit-cta" type="submit">
+<span class="material-symbols-outlined mr-2 text-[18px]">login</span>
+<span id="cta-label">Sign In to Clinical Console</span>
+</button>
+</div>
+</form>
+<!-- System Verification & Diagnostics Footer -->
+<div class="border-t border-outline-variant bg-surface-container-low px-6 py-4 sm:px-8 rounded-b-lg">
+<div class="flex items-start gap-2.5">
+<span class="material-symbols-outlined text-[18px] text-secondary mt-0.5">terminal</span>
+<div class="flex-1">
+<p class="text-[11px] font-mono font-medium text-on-surface">
+                Local Deployment: Docker Compose v2.24 | PostgreSQL 16.1 Online | API Engine: /v2/model_info ready
+              </p>
+<!-- Demo Credentials Section -->
+<div class="mt-2 flex flex-col gap-1 text-[11px] text-on-surface-variant">
+<span class="font-semibold uppercase tracking-wider text-[10px] text-outline">Quick Demo Credentials:</span>
+<div class="flex flex-wrap items-center gap-2 font-mono">
+<button class="rounded border border-outline-variant bg-surface-container-lowest px-2 py-0.5 text-primary hover:bg-surface-container transition-colors text-left" onclick="populateCreds('doctor')" type="button">
+<span class="text-on-surface-variant">Doc:</span> dr.jenkins@corvushealth.org
+                  </button>
+<button class="rounded border border-outline-variant bg-surface-container-lowest px-2 py-0.5 text-primary hover:bg-surface-container transition-colors text-left" onclick="populateCreds('patient')" type="button">
+<span class="text-on-surface-variant">Pt:</span> maria.gonzalez@patient.corvushealth.org
+                  </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Trust & Compliance Subtext -->
+<div class="mt-4 flex items-center justify-between px-2 text-[11px] text-outline">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">lock_clock</span>
+          Session timeout: 15m inactivity
+        </span>
+<span class="flex items-center gap-1 font-mono">
+          TLS 1.3 / AES-256-GCM
+        </span>
+</div>
+</div>
+</main>
+<!-- Bottom Regulatory Bar -->
+<footer class="w-full border-t border-outline-variant bg-surface-container-lowest py-3 px-4 text-center text-xs text-on-surface-variant sm:px-8">
+<div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 sm:flex-row">
+<p class="text-[11px]">
+        © 2025 Corvus Health Systems. For authorized healthcare personnel and enrolled participants only.
+      </p>
+<div class="flex items-center gap-4 text-[11px]">
+<a class="hover:text-primary hover:underline" href="#hipaa">HIPAA Notice</a>
+<a class="hover:text-primary hover:underline" href="#privacy">Security Protocols</a>
+<a class="hover:text-primary hover:underline" href="#status">System Status (99.98%)</a>
+</div>
+</div>
+</footer>
+<script>
+    let currentRole = 'doctor';
+
+    function selectRole(role) {
+      currentRole = role;
+      const docBtn = document.getElementById('role-doctor-btn');
+      const patBtn = document.getElementById('role-patient-btn');
+      const helper = document.getElementById('role-helper-text');
+      const ctaLabel = document.getElementById('cta-label');
+      const emailInput = document.getElementById('work-email');
+
+      if (role === 'doctor') {
+        docBtn.className = 'flex flex-1 h-full items-center justify-center rounded px-3 text-xs font-semibold tracking-wide transition-all duration-150 bg-surface-container-lowest text-primary shadow-sm';
+        docBtn.setAttribute('aria-pressed', 'true');
+        patBtn.className = 'flex flex-1 h-full items-center justify-center rounded px-3 text-xs font-semibold tracking-wide transition-all duration-150 text-on-surface-variant hover:text-on-surface';
+        patBtn.setAttribute('aria-pressed', 'false');
+        helper.textContent = 'Sign in to access patient roster, triage CKD predictions, and run /v2/predict models.';
+        ctaLabel.textContent = 'Sign In to Clinical Console';
+        emailInput.placeholder = 'doctor@corvushealth.org';
+        if (emailInput.value.includes('patient.corvushealth.org')) {
+          emailInput.value = 'dr.jenkins@corvushealth.org';
+        }
+      } else {
+        patBtn.className = 'flex flex-1 h-full items-center justify-center rounded px-3 text-xs font-semibold tracking-wide transition-all duration-150 bg-surface-container-lowest text-primary shadow-sm';
+        patBtn.setAttribute('aria-pressed', 'true');
+        docBtn.className = 'flex flex-1 h-full items-center justify-center rounded px-3 text-xs font-semibold tracking-wide transition-all duration-150 text-on-surface-variant hover:text-on-surface';
+        docBtn.setAttribute('aria-pressed', 'false');
+        helper.textContent = 'Sign in to submit vital signs, view lab summaries, and complete health surveys.';
+        ctaLabel.textContent = 'Sign In to Patient Portal';
+        emailInput.placeholder = 'patient@corvushealth.org';
+        if (emailInput.value.includes('dr.jenkins@corvushealth.org')) {
+          emailInput.value = 'maria.gonzalez@patient.corvushealth.org';
+        }
+      }
+    }
+
+    function populateCreds(role) {
+      selectRole(role);
+      const emailInput = document.getElementById('work-email');
+      const pwdInput = document.getElementById('password');
+      if (role === 'doctor') {
+        emailInput.value = 'dr.jenkins@corvushealth.org';
+        pwdInput.value = 'ClinicalSec!2024';
+      } else {
+        emailInput.value = 'maria.gonzalez@patient.corvushealth.org';
+        pwdInput.value = 'HealthTrack$99';
+      }
+    }
+
+    function togglePasswordVisibility() {
+      const pwd = document.getElementById('password');
+      const icon = document.getElementById('pwd-icon');
+      const label = document.getElementById('pwd-text');
+      if (pwd.type === 'password') {
+        pwd.type = 'text';
+        icon.textContent = 'visibility_off';
+        label.textContent = 'Hide';
+      } else {
+        pwd.type = 'password';
+        icon.textContent = 'visibility';
+        label.textContent = 'Show';
+      }
+    }
+  </script>
+</body></html>

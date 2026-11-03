@@ -30,3 +30,13 @@ reports/*
 .vscode/
 # Test / probe databases (never committed)
 *.db
+
+# Node / tool state (never part of the Python project)
+node_modules/
+.pytest_cache/
+.ruff_cache/
+*.log
+.archify/
+.claude-flow/
+.opencode/
+.gsd/

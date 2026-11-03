@@ -43,7 +43,7 @@ is the entire credibility of this exercise.
 1. Circularity: label reconstructible ≥99% from allowed inputs alone → STOP.
 2. Sanity: positive rate 10–20% (CDC 2021–2023: ~14%); duplicates 0;
    missingness honest (expected heavy in urine labs).
-3. Provenance: this file + CDC doc URLs recorded in `ppt.md`.
+3. Provenance: this file + CDC doc URLs recorded in `docs/ppt.md`.
 
 ## v2 re-derivation (2026-10-10, user-approved: merge everything, re-audit)
 

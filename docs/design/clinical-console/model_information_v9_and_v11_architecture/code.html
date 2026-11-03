@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "surface": "#f8f9ff", "on-background": "#0b1c30", "error-container": "#ffdad6", "on-primary-container": "#a8b8ff", "background": "#f8f9ff", "secondary-fixed": "#85f8c4", "tertiary-fixed": "#ffdad6", "on-error": "#ffffff", "secondary": "#006c4a", "on-surface": "#0b1c30", "on-secondary-fixed": "#002114", "primary-fixed": "#dde1ff", "tertiary": "#700006", "on-tertiary-fixed-variant": "#93000b", "surface-tint": "#3755c3", "surface-dim": "#cbdbf5", "surface-container-lowest": "#ffffff", "surface-variant": "#d3e4fe", "on-secondary-container": "#00714e", "surface-container-low": "#eff4ff", "surface-bright": "#f8f9ff", "on-tertiary": "#ffffff", "inverse-surface": "#213145", "on-primary-fixed": "#001453", "error": "#ba1a1a", "tertiary-fixed-dim": "#ffb4ab", "on-primary-fixed-variant": "#173bab", "outline": "#757684", "secondary-container": "#82f5c1", "secondary-fixed-dim": "#68dba9", "surface-container-high": "#dce9ff", "on-surface-variant": "#444653", "on-tertiary-fixed": "#410002", "outline-variant": "#c4c5d5", "inverse-on-surface": "#eaf1ff", "surface-container-highest": "#d3e4fe", "primary-container": "#1e40af", "on-secondary": "#ffffff", "primary": "#00288e", "on-tertiary-container": "#ffa399", "surface-container": "#e5eeff", "on-secondary-fixed-variant": "#005137", "primary-fixed-dim": "#b8c4ff", "inverse-primary": "#b8c4ff", "on-primary": "#ffffff", "tertiary-container": "#9b000d", "on-error-container": "#93000a" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "space-lg": "1rem", "space-md": "0.75rem", "gutter-desktop": "1.5rem", "space-xl": "1.5rem", "margin": "1rem", "margin-desktop": "1.5rem", "gutter": "1rem", "space-sm": "0.5rem", "space-xs": "0.25rem" }, "fontFamily": { "data-metric": ["Inter"], "headline-lg": ["Inter"], "body-lg": ["Inter"], "label-sm": ["Inter"], "headline-md": ["Inter"], "label-md": ["Inter"], "body-md": ["Inter"], "body-sm": ["Inter"], "data-tabular": ["Inter"], "headline-sm": ["Inter"] }, "fontSize": { "data-metric": ["1.5rem", { "lineHeight": "1.75rem", "letterSpacing": "-0.02em", "fontWeight": "700" }], "headline-lg": ["1.75rem", { "lineHeight": "2.25rem", "letterSpacing": "-0.02em", "fontWeight": "700" }], "body-lg": ["1rem", { "lineHeight": "1.5rem", "letterSpacing": "-0.005em", "fontWeight": "400" }], "label-sm": ["0.6875rem", { "lineHeight": "0.875rem", "letterSpacing": "0.04em", "fontWeight": "600" }], "headline-md": ["1.375rem", { "lineHeight": "1.875rem", "letterSpacing": "-0.015em", "fontWeight": "600" }], "label-md": ["0.8125rem", { "lineHeight": "1rem", "letterSpacing": "0.01em", "fontWeight": "500" }], "body-md": ["0.875rem", { "lineHeight": "1.25rem", "letterSpacing": "0em", "fontWeight": "400" }], "body-sm": ["0.8125rem", { "lineHeight": "1.125rem", "letterSpacing": "0em", "fontWeight": "400" }], "data-tabular": ["0.8125rem", { "lineHeight": "1.125rem", "letterSpacing": "0em", "fontWeight": "500" }], "headline-sm": ["1.125rem", { "lineHeight": "1.625rem", "letterSpacing": "-0.01em", "fontWeight": "600" }] } } } };</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-lowest border-r border-outline-variant z-50 flex flex-col justify-between"><div class="flex flex-col"><div class="h-16 px-space-md flex items-center gap-space-sm border-b border-outline-variant"><img alt="Corvus Health Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1XndRRw9zqjfq_Hl9-Jno_qU9sUQwOizG8i9rPj_I6oerp-gRSbW7njwgIEb-uOhZj_3IRJQf_DLnCEBrA_6HJKDjy5u6OwWxbH9tO3zE39MTgDa1UKD_bnf9ijnb2dV6drAsEsg70zLcs7JQALjHaGsj_dh1ms93S_7pPwxw3sU5tOHHKIh9kYp1-QdiD7f3Zig_WVH6WaIVi12RwBEFG984bBCp-Hu4n9HHrvmQcpq_LyZ3PCPppz"/><div class="flex flex-col leading-none min-w-0"><span class="font-headline-sm text-headline-sm text-on-surface truncate">Corvus Health</span><span class="font-label-sm text-label-sm text-on-surface-variant truncate uppercase">Clinical Console</span></div></div><div class="px-space-md py-space-sm border-b border-outline-variant bg-surface-container-low"><div class="flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-secondary shrink-0"></span><span class="font-label-sm text-label-sm text-on-surface font-medium truncate">Local Docker: PostgreSQL Connected</span></div></div><nav class="flex flex-col py-space-sm gap-0.5" data-active-classes="bg-primary-container text-on-primary font-semibold border-l-2 border-primary"><a class="flex items-center gap-space-md px-space-md py-space-sm text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-label-md text-label-md" data-path="dashboard" href="#"><span class="material-symbols-outlined text-[20px]">group</span><span>Patients</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-label-md text-label-md" data-path="patient-detail" href="#"><span class="material-symbols-outlined text-[20px]">query_stats</span><span>Predictions</span></a><a aria-current="page" class="flex items-center gap-space-md px-space-md py-space-sm transition-colors bg-primary-container text-on-primary font-semibold border-l-2 border-primary" data-path="model-info" href="#"><span class="material-symbols-outlined text-[20px]">biotech</span><span>Model Information</span></a><a class="flex items-center gap-space-md px-space-md py-space-sm text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-label-md text-label-md" data-path="system-audit" href="#"><span class="material-symbols-outlined text-[20px]">security</span><span>System &amp; Audit</span></a></nav></div><div class="p-space-md border-t border-outline-variant bg-surface-container-lowest"><div class="flex items-center justify-between mb-space-xs"><span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Platform Engine</span><span class="font-data-tabular text-data-tabular text-on-surface font-semibold">v2.4.0-clinical</span></div><div class="flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-secondary shrink-0"></span><span class="font-label-sm text-label-sm text-secondary font-medium">PostgreSQL Active</span></div></div></aside><div class="pl-64 flex flex-col min-h-screen"><header class="fixed top-0 left-64 right-0 h-16 bg-surface-container-lowest border-b border-outline-variant z-40 px-gutter-desktop flex items-center justify-between"><div class="flex items-center gap-space-md min-w-0"><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface leading-tight">Corvus Health</span><span class="font-label-sm text-label-sm text-on-surface-variant leading-tight">CKD Risk Platform | Clinical Console</span></div><span class="hidden lg:inline-flex items-center px-space-sm py-0.5 rounded border border-outline-variant bg-surface-container-low text-on-surface-variant font-label-sm text-label-sm font-medium">PostgreSQL Connected</span></div><div class="flex items-center gap-space-md shrink-0"><button aria-label="Notifications" class="relative p-space-xs text-on-surface-variant hover:text-on-surface transition-colors rounded hover:bg-surface-container-high" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-error ring-2 ring-surface-container-lowest"></span></button><div class="h-6 w-px bg-outline-variant"></div><div class="flex items-center gap-space-sm"><img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-1 ring-outline-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBO2z8E7rzO6NAWfGyBRmXguj2Wg6dAEGNBpLdYNsg5EsWDkZmPU5JO1EsWn4TVKxKxVC1z3gtGVEshhAoF34oNhqTsvsmy5cP3GF2ogDJ9sqOOmv32tAqr8US_4xZTqYmNHTOt21eAH4kwogPIYtWCK2Lch3lC1s9y0y7Qu8mgHXNsTyHqvAKMrpirBKL5iR3DTN_5I_y0rznWf8p4R_o33BpuN2nYcdXJ3J2sCGRE4Q0drMrq9zc"/><div class="hidden sm:flex flex-col leading-tight"><span class="font-label-md text-label-md text-on-surface font-semibold truncate">Dr. Sarah Jenkins, MD</span><span class="font-label-sm text-label-sm text-on-surface-variant truncate">Nephrology</span></div><span class="inline-flex items-center px-space-xs py-0.5 rounded border border-primary-fixed-dim bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-semibold uppercase">Doctor</span></div><div class="h-6 w-px bg-outline-variant"></div><a class="flex items-center gap-space-xs px-space-sm py-1 rounded border border-outline-variant hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors" data-path="login" href="#"><span class="material-symbols-outlined text-[18px]">logout</span><span class="hidden md:inline">Logout</span></a></div></header><main class="w-full pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<!-- Sub-Header / Utility Action Bar -->
+<div class="w-full bg-surface-container-lowest px-gutter-desktop py-space-md shadow-sm">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md">
+<div class="flex flex-col gap-0.5">
+<div class="flex items-center gap-space-xs text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">
+<span>System Architecture</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary font-semibold">Model Inference Engines</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-on-surface">Registry &amp; Schemas</span>
+</div>
+<h1 class="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">Predictive Model Architecture &amp; API Endpoints</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant max-w-4xl">Technical specifications, training datasets, feature requirements, and inference endpoints for validated CKD models.</p>
+</div>
+<div class="flex flex-wrap items-center gap-space-sm shrink-0">
+<a class="inline-flex items-center gap-space-xs px-space-md py-1.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors shadow-sm" href="#endpoint-specs">
+<span class="material-symbols-outlined text-[18px]">terminal</span>
+<span>API Documentation (/v2/docs)</span>
+</a>
+<button class="inline-flex items-center gap-space-xs px-space-md py-1.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-colors shadow-sm" id="btn-trigger-test" type="button">
+<span class="material-symbols-outlined text-[18px]">play_circle</span>
+<span>Test /v2/model_info Endpoint</span>
+</button>
+<button class="inline-flex items-center gap-space-xs px-space-md py-1.5 rounded bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md transition-colors shadow-sm" onclick="document.getElementById('batch-upload-modal').classList.remove('hidden')" type="button">
+<span class="material-symbols-outlined text-[18px]">upload_file</span>
+<span>Batch Predict via CSV (/v2/batch_predict)</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Operational Telemetry Overview -->
+<div class="px-gutter-desktop pt-space-lg pb-space-md">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-space-md">
+<div class="bg-surface-container-lowest p-space-md rounded shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Runtime Status</span>
+<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-secondary-container text-on-secondary-fixed-variant font-label-sm text-label-sm font-semibold">Active Healthy</span>
+</div>
+<div class="mt-space-sm">
+<div class="font-data-metric text-data-metric text-on-surface">LightGBM v11</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Avg latency: 14.2ms | P99: 38ms</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-space-md rounded shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Daily Inference Volume</span>
+<span class="material-symbols-outlined text-primary text-[18px]">analytics</span>
+</div>
+<div class="mt-space-sm">
+<div class="font-data-metric text-data-metric text-on-surface">18,492 <span class="font-label-sm text-label-sm text-secondary font-medium">+8.4%</span></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">PostgreSQL synced 100%</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-space-md rounded shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Model Discrimination (AUROC)</span>
+<span class="material-symbols-outlined text-secondary text-[18px]">verified</span>
+</div>
+<div class="mt-space-sm">
+<div class="font-data-metric text-data-metric text-on-surface">0.931 <span class="font-body-sm text-body-sm text-on-surface-variant">vs 0.849 (v9)</span></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Platt Brier Score: 0.082</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-space-md rounded shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Service Gateway</span>
+<span class="font-data-tabular text-data-tabular text-on-surface font-semibold">FastAPI 0.111</span>
+</div>
+<div class="mt-space-sm">
+<div class="font-data-metric text-data-metric text-on-surface">Docker Mesh</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Internal compose network bridge</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Primary Comparison Grid: Model v11 (Active Production) vs Model v9 (Legacy) -->
+<div class="px-gutter-desktop py-space-sm">
+<div class="flex items-center justify-between mb-space-sm">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm text-primary font-bold uppercase tracking-wider">Engine Registry</span>
+<span class="text-outline-variant">•</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">Validated Clinical Prediction Models</span>
+</div>
+<div class="flex items-center gap-space-sm text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-secondary"></span> Production Route</span>
+<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-outline"></span> Reference Archive</span>
+</div>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-md">
+<!-- Model v11 Card (Active Native) -->
+<div class="xl:col-span-7 bg-surface-container-lowest rounded shadow-sm flex flex-col">
+<!-- Top Status Bar -->
+<div class="p-space-md bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm">
+<div class="flex items-center gap-space-sm">
+<span class="px-2 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-bold uppercase tracking-wide">
+              Active Production
+            </span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">Model v11 (NHANES Native Ensembles)</h2>
+</div>
+<span class="font-data-tabular text-data-tabular text-primary font-semibold">corvus-engine-v11:latest</span>
+</div>
+<div class="p-space-md flex flex-col gap-space-md">
+<!-- Metadata Details Matrix -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+<div class="flex flex-col gap-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Dataset &amp; Origin Cohort</span>
+<p class="font-body-md text-body-md text-on-surface font-medium">NHANES Native (National Health and Nutrition Examination Survey)</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Validated against diverse US adult ambulatory cohorts (n=41,200) cross-matched with Medicare claims trajectories.</p>
+</div>
+<div class="flex flex-col gap-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Model Architecture &amp; Calibration</span>
+<p class="font-body-md text-body-md text-on-surface font-medium">LightGBM / Gradient Boosted Ensembles</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Sigmoid Platt-scaled probabilities; hyperparameter optimized via 10-fold stratified cross-validation.</p>
+</div>
+</div>
+<!-- Inference Endpoints -->
+<div class="bg-surface-container-low p-space-md rounded flex flex-col gap-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold">Exposed API Endpoints</span>
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-space-sm font-data-tabular text-data-tabular">
+<div class="bg-surface-container-lowest p-space-xs px-space-sm rounded shadow-sm">
+<span class="text-secondary font-bold text-[11px] block">PRIMARY INFERENCE</span>
+<span class="text-on-surface font-semibold">POST /v2/predict</span>
+</div>
+<div class="bg-surface-container-lowest p-space-xs px-space-sm rounded shadow-sm">
+<span class="text-primary font-bold text-[11px] block">BATCH PIPELINE</span>
+<span class="text-on-surface font-semibold">POST /v2/batch_predict</span>
+</div>
+<div class="bg-surface-container-lowest p-space-xs px-space-sm rounded shadow-sm">
+<span class="text-on-surface-variant font-bold text-[11px] block">METADATA AUDIT</span>
+<span class="text-on-surface font-semibold">GET /v2/model_info</span>
+</div>
+</div>
+</div>
+<!-- Feature Matrix (14 Features) -->
+<div>
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold">Required Feature Schema (14 Clinical Biomarkers)</span>
+<span class="font-label-sm text-label-sm text-secondary font-medium">Strict strict-typed validation</span>
+</div>
+<div class="flex flex-wrap gap-1.5">
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-medium">Age (yrs)</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-medium">Gender (0/1)</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-medium">Systolic BP (mmHg)</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-medium">Diastolic BP (mmHg)</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-bold">eGFR (CKD-EPI)</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-bold">Serum Creatinine</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-medium">BUN (mg/dL)</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm font-bold">Urine Albumin (uACR)</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-medium">HbA1c (%)</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-medium">Fasting Glucose</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-medium">Total Cholesterol</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-medium">HDL (mg/dL)</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-medium">Smoking Status</span>
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-medium">Hypertension History</span>
+</div>
+</div>
+<!-- Persistence Pipeline Info -->
+<div class="p-space-sm rounded bg-surface-container-high flex items-start gap-space-sm text-on-surface">
+<span class="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">database</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-semibold">Automated Docker Compose Persistence</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Every v11 inference payload (features + calibration odds) synchronously writes to PostgreSQL table <code class="font-data-tabular text-data-tabular bg-surface-container px-1 rounded">public.prediction_logs</code> via Docker internal network <code class="font-data-tabular text-data-tabular bg-surface-container px-1 rounded">corvus_mesh</code>.</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Model v9 Card (Legacy Benchmark) -->
+<div class="xl:col-span-5 bg-surface-container-lowest rounded shadow-sm flex flex-col justify-between">
+<div>
+<!-- Top Status Bar -->
+<div class="p-space-md bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm font-bold uppercase tracking-wide">
+                Legacy / Benchmark
+              </span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Model v9 (UCI Baseline)</h2>
+</div>
+<span class="font-data-tabular text-data-tabular text-on-surface-variant">corvus-engine-v9:archive</span>
+</div>
+<div class="p-space-md flex flex-col gap-space-md">
+<div class="flex flex-col gap-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Dataset &amp; Origin Cohort</span>
+<p class="font-body-md text-body-md text-on-surface font-medium">UCI Chronic Kidney Disease Dataset (Apollo Hospitals clinical cohort)</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Single-center inpatient registry (n=400) collected in 2015. Subject to geographic sampling constraints and high missingness imputation.</p>
+</div>
+<div class="grid grid-cols-2 gap-space-sm">
+<div class="p-space-sm rounded bg-surface-container-low">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase block">Model Type</span>
+<span class="font-body-md text-body-md text-on-surface font-semibold">Random Forest</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant block">100 Estimators</span>
+</div>
+<div class="p-space-sm rounded bg-surface-container-low">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase block">Status</span>
+<span class="font-body-md text-body-md text-tertiary-container font-semibold">Deprecated / V1</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant block">No new clinical intake</span>
+</div>
+</div>
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold block mb-space-xs">Endpoint Route</span>
+<div class="p-space-xs px-space-sm rounded bg-surface-container-low font-data-tabular text-data-tabular flex items-center justify-between">
+<span class="text-on-surface font-medium">POST /v1/predict</span>
+<span class="text-tertiary font-bold text-[11px] uppercase">Soft Retired</span>
+</div>
+</div>
+<div>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold block mb-space-xs">Required Features (24 Parameters)</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Includes legacy laboratory markers: Specific Gravity (sg), Albumin nominal scale (0–5), Pus Cell (normal/abnormal), Bacteria, Blood Glucose Random, Packed Cell Volume (pcv), White Blood Cell Count, Red Blood Cell Count, Pedal Edema.</p>
+</div>
+</div>
+</div>
+<div class="p-space-md border-t-0 bg-surface-container-low rounded-b">
+<div class="flex items-center gap-space-xs text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[18px] text-outline">history</span>
+<span>Maintained for longitudinal backwards compatibility and benchmark replication studies.</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Real-Time Model Validation Metrics Side-by-Side -->
+<div class="px-gutter-desktop py-space-sm">
+<div class="bg-surface-container-lowest rounded p-space-md shadow-sm">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-space-sm mb-space-md bg-surface-container-low px-space-md py-space-xs rounded">
+<div>
+<span class="font-label-sm text-label-sm text-primary font-bold uppercase">Clinical Performance Benchmark</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Discrimination, Calibration &amp; Cohort Drift Metrics</h3>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Validation Cohort: Retrospective Medicare 2024-Q3 (n=12,850)</span>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-space-md">
+<!-- ROC Comparison -->
+<div class="bg-surface-container-low p-space-md rounded flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-center mb-space-xs">
+<span class="font-label-md text-label-md text-on-surface font-semibold">AUROC (Area Under ROC)</span>
+<span class="px-1.5 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-bold">+9.6% v11</span>
+</div>
+<div class="flex items-baseline gap-space-sm mt-space-sm">
+<span class="font-data-metric text-data-metric text-primary">0.931</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant line-through">0.849 (v9)</span>
+</div>
+</div>
+<!-- Inline Sparkline / Visual -->
+<div class="mt-space-md pt-space-xs">
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden flex">
+<div class="bg-primary h-full" style="width: 93.1%"></div>
+</div>
+<div class="flex justify-between text-[11px] font-data-tabular text-on-surface-variant mt-1">
+<span>Specificity: 91.2%</span>
+<span>Sensitivity: 94.5%</span>
+</div>
+</div>
+</div>
+<!-- PR-AUC -->
+<div class="bg-surface-container-low p-space-md rounded flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-center mb-space-xs">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Precision-Recall AUC</span>
+<span class="px-1.5 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm font-bold">+14.1% v11</span>
+</div>
+<div class="flex items-baseline gap-space-sm mt-space-sm">
+<span class="font-data-metric text-data-metric text-primary">0.887</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant line-through">0.777 (v9)</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs">
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden flex">
+<div class="bg-primary h-full" style="width: 88.7%"></div>
+</div>
+<div class="flex justify-between text-[11px] font-data-tabular text-on-surface-variant mt-1">
+<span>PPV: 87.4%</span>
+<span>NPV: 96.1%</span>
+</div>
+</div>
+</div>
+<!-- Brier Calibration -->
+<div class="bg-surface-container-low p-space-md rounded flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-center mb-space-xs">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Brier Calibration Score</span>
+<span class="font-label-sm text-label-sm text-secondary font-bold">Lower is better</span>
+</div>
+<div class="flex items-baseline gap-space-sm mt-space-sm">
+<span class="font-data-metric text-data-metric text-secondary">0.082</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant line-through">0.164 (v9)</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs">
+<span class="font-body-sm text-body-sm text-on-surface">Platt scaling achieves near-linear probability calibration across CKD Stage 1-4 risk strata.</span>
+</div>
+</div>
+<!-- Inference Latency -->
+<div class="bg-surface-container-low p-space-md rounded flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-center mb-space-xs">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Inference Speed</span>
+<span class="px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface font-label-sm text-label-sm font-bold">C-Optimized</span>
+</div>
+<div class="flex items-baseline gap-space-sm mt-space-sm">
+<span class="font-data-metric text-data-metric text-on-surface">14.2 ms</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">vs 46.8 ms (v9)</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs">
+<span class="font-body-sm text-body-sm text-on-surface">Vectorized feature scaling with SIMD accelerated tree traversal in FastAPI runtime.</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Interactive Endpoint Playground & Schema Specifications -->
+<div class="px-gutter-desktop py-space-sm" id="endpoint-specs">
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-md">
+<!-- Live API Schema & Curl Console (7 cols) -->
+<div class="xl:col-span-7 bg-surface-container-lowest rounded shadow-sm flex flex-col">
+<div class="p-space-md bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[22px]">code</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Live API Endpoint Playground</h3>
+</div>
+<!-- Endpoint Switcher Tabs -->
+<div class="flex items-center bg-surface-container rounded p-0.5 text-on-surface-variant font-label-sm text-label-sm">
+<button class="px-space-sm py-1 rounded bg-surface-container-lowest text-primary font-semibold shadow-sm transition-all" id="tab-predict" onclick="switchTab('predict')">POST /v2/predict</button>
+<button class="px-space-sm py-1 rounded hover:text-on-surface transition-all" id="tab-batch" onclick="switchTab('batch')">POST /v2/batch_predict</button>
+<button class="px-space-sm py-1 rounded hover:text-on-surface transition-all" id="tab-info" onclick="switchTab('info')">GET /v2/model_info</button>
+</div>
+</div>
+<div class="p-space-md flex flex-col gap-space-md">
+<!-- Curl Request Snippet Panel -->
+<div class="flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold">Request Example (HTTP / cURL)</span>
+<button class="text-primary hover:text-on-surface font-label-sm text-label-sm flex items-center gap-1" onclick="navigator.clipboard.writeText(document.getElementById('code-req').innerText); alert('Copied to clipboard');">
+<span class="material-symbols-outlined text-[14px]">content_copy</span> Copy
+              </button>
+</div>
+<pre class="bg-inverse-surface text-inverse-on-surface p-space-md rounded font-data-tabular text-data-tabular overflow-x-auto leading-relaxed"><code id="code-req">curl -X 'POST' \
+  'https://api.corvushealth.internal/v2/predict' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "patient_id": "PT-84920",
+    "age": 62,
+    "gender": 1,
+    "systolic_bp": 142.0,
+    "diastolic_bp": 88.0,
+    "egfr": 44.5,
+    "serum_creatinine": 1.72,
+    "blood_urea_nitrogen": 26.0,
+    "urine_albumin": 185.0,
+    "hba1c": 7.4,
+    "fasting_glucose": 138.0,
+    "total_cholesterol": 210.0,
+    "hdl": 38.0,
+    "smoking_status": 1,
+    "hypertension_history": 1
+  }'</code></pre>
+</div>
+<!-- Execution Trigger & Real-time Live Response Area -->
+<div class="flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold">Response Payload (200 OK)</span>
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+</div>
+<button class="px-space-md py-1 rounded bg-primary text-on-primary font-label-sm text-label-sm font-semibold hover:bg-primary-container transition-colors flex items-center gap-1" id="btn-execute-playground">
+<span class="material-symbols-outlined text-[16px]">send</span> Run Sample Request
+              </button>
+</div>
+<pre class="bg-surface-container text-on-surface p-space-md rounded font-data-tabular text-data-tabular overflow-x-auto leading-relaxed"><code id="code-res">{
+  "status": "success",
+  "prediction": "CKD Detected",
+  "probability": 0.892,
+  "confidence_interval_95": [0.854, 0.923],
+  "model_version": "v11",
+  "model_architecture": "LightGBM-Platt-v11.4",
+  "risk_tier": "HIGH",
+  "kdigo_category": "G3b-A2",
+  "biomarker_contributions": {
+    "egfr": -0.34,
+    "serum_creatinine": +0.28,
+    "urine_albumin": +0.21,
+    "hba1c": +0.12
+  },
+  "audit_log_id": 984021,
+  "timestamp": "2026-10-20T09:42:00.184Z"
+}</code></pre>
+</div>
+</div>
+</div>
+<!-- Batch Predict CSV Specification + DB Schema (5 cols) -->
+<div class="xl:col-span-5 flex flex-col gap-space-md">
+<!-- CSV Multipart Specification Card -->
+<div class="bg-surface-container-lowest rounded p-space-md shadow-sm">
+<div class="flex items-center justify-between pb-space-xs mb-space-sm bg-surface-container-low px-space-sm py-space-xs rounded">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[20px]">table_chart</span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Batch CSV Schema (/v2/batch_predict)</h4>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-data-tabular">multipart/form-data</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-space-sm">
+            For cohort stratification, upload UTF-8 encoded CSV files up to 25MB (approx 50,000 records). Minimum required columns:
+          </p>
+<div class="overflow-x-auto">
+<table class="w-full text-left font-data-tabular text-data-tabular">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant text-[11px] uppercase">
+<th class="py-1.5 px-2">Column Name</th>
+<th class="py-1.5 px-2">Type</th>
+<th class="py-1.5 px-2">Constraints</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container">
+<tr>
+<td class="py-1.5 px-2 font-semibold text-primary">patient_id</td>
+<td class="py-1.5 px-2 text-on-surface-variant">string</td>
+<td class="py-1.5 px-2 text-on-surface">Alphanumeric MRN</td>
+</tr>
+<tr>
+<td class="py-1.5 px-2 font-semibold text-primary">age</td>
+<td class="py-1.5 px-2 text-on-surface-variant">integer</td>
+<td class="py-1.5 px-2 text-on-surface">18 - 110</td>
+</tr>
+<tr>
+<td class="py-1.5 px-2 font-semibold text-primary">scr</td>
+<td class="py-1.5 px-2 text-on-surface-variant">float</td>
+<td class="py-1.5 px-2 text-on-surface">Serum Creatinine (mg/dL)</td>
+</tr>
+<tr>
+<td class="py-1.5 px-2 font-semibold text-primary">egfr</td>
+<td class="py-1.5 px-2 text-on-surface-variant">float</td>
+<td class="py-1.5 px-2 text-on-surface">CKD-EPI 2021 formula</td>
+</tr>
+<tr>
+<td class="py-1.5 px-2 font-semibold text-primary">uacr</td>
+<td class="py-1.5 px-2 text-on-surface-variant">float</td>
+<td class="py-1.5 px-2 text-on-surface">Urine Albumin/Creatinine</td>
+</tr>
+<tr>
+<td class="py-1.5 px-2 font-semibold text-primary">sbp</td>
+<td class="py-1.5 px-2 text-on-surface-variant">float</td>
+<td class="py-1.5 px-2 text-on-surface">Systolic Blood Pressure</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="mt-space-sm pt-space-xs flex justify-between items-center text-[12px]">
+<span class="text-on-surface-variant font-label-sm text-label-sm">Returns asynchronous job ID and streaming JSON stream.</span>
+<a class="text-primary hover:underline font-label-sm text-label-sm font-semibold flex items-center gap-0.5" href="#">
+<span>Download sample.csv</span>
+<span class="material-symbols-outlined text-[14px]">download</span>
+</a>
+</div>
+</div>
+<!-- PostgreSQL Audit Table Card -->
+<div class="bg-surface-container-lowest rounded p-space-md shadow-sm">
+<div class="flex items-center justify-between pb-space-xs mb-space-sm bg-surface-container-low px-space-sm py-space-xs rounded">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[20px]">storage</span>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold">PostgreSQL Logging Schema</h4>
+</div>
+<span class="font-label-sm text-label-sm text-secondary font-bold">public.prediction_logs</span>
+</div>
+<pre class="bg-surface-container text-on-surface p-space-sm rounded font-data-tabular text-[12px] leading-relaxed overflow-x-auto"><code>CREATE TABLE prediction_logs (
+    id SERIAL PRIMARY KEY,
+    patient_id VARCHAR(64) NOT NULL,
+    model_version VARCHAR(16) NOT NULL,
+    prediction VARCHAR(32) NOT NULL,
+    probability NUMERIC(5,4) NOT NULL,
+    risk_tier VARCHAR(16) NOT NULL,
+    raw_features JSONB NOT NULL,
+    clinician_id VARCHAR(64),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX idx_pred_patient ON prediction_logs(patient_id);
+CREATE INDEX idx_pred_created ON prediction_logs(created_at DESC);</code></pre>
+</div>
+</div>
+</div>
+</div>
+<!-- Docker Compose Architecture Diagram Card -->
+<div class="px-gutter-desktop py-space-sm pb-space-xl">
+<div class="bg-surface-container-lowest rounded p-space-md shadow-sm">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-space-sm mb-space-md bg-surface-container-low px-space-md py-space-xs rounded">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[22px]">hub</span>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Containerized Docker Architecture</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Isolated inter-service communication mesh, persistent storage mapping, and load orchestration.</p>
+</div>
+</div>
+<div class="flex items-center gap-space-sm text-on-surface-variant font-label-sm text-label-sm">
+<span class="px-2 py-0.5 rounded bg-surface-container font-data-tabular">docker-compose.prod.yml</span>
+<span class="px-2 py-0.5 rounded bg-secondary-fixed text-on-secondary-fixed font-semibold">Mesh Healthy</span>
+</div>
+</div>
+<!-- Architecture Topology Representation -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-space-md relative">
+<!-- Node 1: Clinical Console (Frontend) -->
+<div class="p-space-md rounded bg-surface-container-low flex flex-col justify-between">
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Service: UI Web</span>
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Clinical Console</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Single Page Clinical Workbench, Tailwind design tokens, role-based session controls.</p>
+</div>
+<div class="mt-space-md pt-space-xs bg-surface-container-lowest p-space-xs rounded text-[11px] font-data-tabular">
+<span class="text-on-surface-variant block">Internal port: 8080:80</span>
+<span class="text-primary font-semibold">Network: corvus_mesh</span>
+</div>
+</div>
+<!-- Node 2: FastAPI Engine Gateway -->
+<div class="p-space-md rounded bg-surface-container flex flex-col justify-between shadow-sm">
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-label-sm text-label-sm text-primary uppercase font-bold">Core API Gateway</span>
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold">FastAPI Inference Service</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Loads Model v11 artifacts in-memory via LightGBM C++ API. Validates Pydantic schemas.</p>
+</div>
+<div class="mt-space-md pt-space-xs bg-surface-container-lowest p-space-xs rounded text-[11px] font-data-tabular">
+<span class="text-on-surface-variant block">Container: corvus_api_1</span>
+<span class="text-primary font-semibold">Uvicorn 4-workers / Pydantic v2</span>
+</div>
+</div>
+<!-- Node 3: PostgreSQL Database -->
+<div class="p-space-md rounded bg-surface-container-low flex flex-col justify-between">
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Service: RDBMS</span>
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold">PostgreSQL 16 Engine</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">High-throughput ACID transaction log for patient biometrics and inference probabilities.</p>
+</div>
+<div class="mt-space-md pt-space-xs bg-surface-container-lowest p-space-xs rounded text-[11px] font-data-tabular">
+<span class="text-on-surface-variant block">Port: 5432 (isolated mesh)</span>
+<span class="text-primary font-semibold">Active Conn: 38 / 100</span>
+</div>
+</div>
+<!-- Node 4: Storage & Volume Persistence -->
+<div class="p-space-md rounded bg-surface-container-low flex flex-col justify-between">
+<div class="flex items-center justify-between mb-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Volume Persistence</span>
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Docker Managed Volumes</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Host-mounted encrypted disk for postgres data files and model serialized weights (.lgb).</p>
+</div>
+<div class="mt-space-md pt-space-xs bg-surface-container-lowest p-space-xs rounded text-[11px] font-data-tabular">
+<span class="text-on-surface-variant block">Path: /var/lib/postgresql/data</span>
+<span class="text-primary font-semibold">Encryption: AES-256</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Hidden Batch Upload Modal Dialogue -->
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/40 backdrop-blur-sm hidden" id="batch-upload-modal">
+<div class="bg-surface-container-lowest rounded p-space-lg max-w-lg w-full mx-space-md shadow-xl flex flex-col gap-space-md">
+<div class="flex items-center justify-between pb-space-xs bg-surface-container-low px-space-sm py-space-xs rounded">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[22px]">upload_file</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">CSV Batch Inference Ingestion</h3>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface" onclick="document.getElementById('batch-upload-modal').classList.add('hidden')">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<div class="flex flex-col gap-space-sm">
+<p class="font-body-sm text-body-sm text-on-surface-variant">Select your patient cohort CSV with the mandatory fields (<code class="bg-surface-container px-1 font-data-tabular">patient_id</code>, <code class="bg-surface-container px-1 font-data-tabular">age</code>, <code class="bg-surface-container px-1 font-data-tabular">scr</code>, <code class="bg-surface-container px-1 font-data-tabular">egfr</code>, <code class="bg-surface-container px-1 font-data-tabular">uacr</code>, <code class="bg-surface-container px-1 font-data-tabular">sbp</code>).</p>
+<div class="p-space-lg rounded bg-surface-container-low flex flex-col items-center justify-center text-center cursor-pointer hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-primary text-[36px] mb-space-xs">cloud_upload</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold">Drop CSV cohort here or browse filesystem</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-1">Maximum 50,000 rows (25MB)</span>
+</div>
+</div>
+<div class="flex items-center justify-end gap-space-sm pt-space-xs">
+<button class="px-space-md py-1.5 rounded bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors" onclick="document.getElementById('batch-upload-modal').classList.add('hidden')">Cancel</button>
+<button class="px-space-md py-1.5 rounded bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-primary-container transition-colors" onclick="alert('Batch job successfully submitted to corvus_api_1 queue (Task ID #94821)'); document.getElementById('batch-upload-modal').classList.add('hidden')">Start Ingestion Job</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+  function switchTab(type) {
+    const tabs = ['predict', 'batch', 'info'];
+    tabs.forEach(t => {
+      const el = document.getElementById('tab-' + t);
+      if (t === type) {
+        el.className = 'px-space-sm py-1 rounded bg-surface-container-lowest text-primary font-semibold shadow-sm transition-all';
+      } else {
+        el.className = 'px-space-sm py-1 rounded hover:text-on-surface transition-all';
+      }
+    });
+
+    const codeReq = document.getElementById('code-req');
+    const codeRes = document.getElementById('code-res');
+
+    if (type === 'predict') {
+      codeReq.innerText = `curl -X 'POST' \\
+  'https://api.corvushealth.internal/v2/predict' \\
+  -H 'accept: application/json' \\
+  -H 'Content-Type: application/json' \\
+  -d '{
+    "patient_id": "PT-84920",
+    "age": 62,
+    "gender": 1,
+    "systolic_bp": 142.0,
+    "diastolic_bp": 88.0,
+    "egfr": 44.5,
+    "serum_creatinine": 1.72,
+    "blood_urea_nitrogen": 26.0,
+    "urine_albumin": 185.0,
+    "hba1c": 7.4,
+    "fasting_glucose": 138.0,
+    "total_cholesterol": 210.0,
+    "hdl": 38.0,
+    "smoking_status": 1,
+    "hypertension_history": 1
+  }'`;
+      codeRes.innerText = `{
+  "status": "success",
+  "prediction": "CKD Detected",
+  "probability": 0.892,
+  "confidence_interval_95": [0.854, 0.923],
+  "model_version": "v11",
+  "model_architecture": "LightGBM-Platt-v11.4",
+  "risk_tier": "HIGH",
+  "kdigo_category": "G3b-A2",
+  "timestamp": "2026-10-20T09:42:00.184Z"
+}`;
+    } else if (type === 'batch') {
+      codeReq.innerText = `curl -X 'POST' \\
+  'https://api.corvushealth.internal/v2/batch_predict' \\
+  -H 'accept: application/json' \\
+  -H 'Content-Type: multipart/form-data' \\
+  -F 'file=@cohort_nephrology_2026_q3.csv;type=text/csv'`;
+      codeRes.innerText = `{
+  "job_id": "job_94821a8d",
+  "status": "PROCESSING",
+  "total_records": 1240,
+  "estimated_completion_seconds": 3.8,
+  "results_webhook": "https://api.corvushealth.internal/v2/jobs/job_94821a8d/status",
+  "persisted_table": "public.prediction_logs"
+}`;
+    } else if (type === 'info') {
+      codeReq.innerText = `curl -X 'GET' \\
+  'https://api.corvushealth.internal/v2/model_info' \\
+  -H 'accept: application/json'`;
+      codeRes.innerText = `{
+  "active_model": "v11",
+  "framework": "LightGBM 4.3.0",
+  "calibrator": "Platt Sigmoid Scaling",
+  "num_features": 14,
+  "dataset": "NHANES 2021-2024 Multi-Ethnic Harmonized",
+  "training_instances": 41200,
+  "validation_auroc": 0.9314,
+  "validation_brier": 0.0821,
+  "db_logging_active": true,
+  "docker_node": "corvus_api_1",
+  "build_timestamp": "2026-09-18T14:10:00Z"
+}`;
+    }
+  }
+
+  document.getElementById('btn-execute-playground').addEventListener('click', function() {
+    const orig = this.innerHTML;
+    this.innerHTML = `<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span> Executing...`;
+    setTimeout(() => {
+      this.innerHTML = `<span class="material-symbols-outlined text-[16px]">check</span> 200 OK (11.8ms)`;
+      setTimeout(() => { this.innerHTML = orig; }, 2000);
+    }, 400);
+  });
+
+  document.getElementById('btn-trigger-test').addEventListener('click', function() {
+    switchTab('info');
+    document.getElementById('endpoint-specs').scrollIntoView({ behavior: 'smooth' });
+  });
+</script></main></div></body></html>

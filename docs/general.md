@@ -32,9 +32,9 @@
 
 ### Results
 - 9 runs in experiment `corvus-ckd`; 7 configs at ROC-AUC 1.0, LogReg/MLP-3rd 1.0, DecisionTree 0.980
-- Winner: `mlp-relu` v9 in Staging; v1–v8 Archived; Production empty
+- Winner: `mlp-relu` v9 (v1–v8 Archived; v9 moved Staging → Production as Phase 3's first act)
 - **26/26 tests green** · 6/6 verifier must-haves · review: 0 critical
-- Pending: human UAT (MLflow UI 9 runs + artifacts; registry stages) — `02-UAT.md`
+- Pending: human UAT (MLflow UI 9 runs + artifacts) — `02-UAT.md`
 
 ## Phase 3 — Prediction API + Containerization 🟡 Built, UAT 1/2 (2026-09-21 → 2026-09-23)
 
@@ -43,15 +43,28 @@
 - `api/` — FastAPI: `POST /predict` (24 fields, strict 422), `POST /batch_predict` (CSV, all-or-nothing), `GET /health`, `GET /model_info`; version pinned at startup; every response carries `model_version` (Claim 4)
 - `api/db.py` — full-record Postgres logging (fields + prediction + probability + version + timestamp); fail-closed 503 when DB unavailable
 - `docker/` — health-gated Compose (API + MLflow + Postgres); mlruns volume-mount with Windows→Linux URI rebase script; localhost host-header fix on the tracking server
-- `frontend/app.py` — thin Streamlit UI over predict + batch (zero model logic)
+- `frontend/app.py` — Streamlit UI over predict + batch (zero model logic); enhanced 2026-09-23: grouped clinical sections, live serving sidebar, verdict cards, batch summary + CSV download, demo-patient presets
 - `tests/test_api.py` — TestClient suites (predict/health/version/batch/log/oversize/unavailable)
+- `batch.csv` — 12-row demo batch (7 CKD + 5 healthy, shuffled) for presentations
 
 ### Results
 - Compose smoke proven live: `/health` + `/predict` 200 on v9, Postgres row timestamped v9, clean `down` with zero containers
 - **45/45 tests green** · 14/14 verifier must-haves · review: 0 critical
 - Pending: human UAT test 2 (Streamlit in browser) — `03-UAT.md` (test 1 passed, agent-executed with evidence)
 
-## Phase 4 — CI/CD + Monitoring ⬜ Not started
+## Data Track — Big-Cohort Retrain 🟡 NHANES derivation in progress (from 2026-10-10)
+
+### What was done
+- Dataset hunt + forensic vetting: 200K (leaky eGFR label), 20K (synthetic fingerprints), 4K (circular `ckd_pred`), 25.8K KDIGO (rule-deterministic Target, 7 combos 0 mixed; card stats contradicted file), NHANES-derived 11.9K CSV (fiat-labeled Unknown block), UCI-857 (binned + contaminated binaries, rejected for validation too) — all rejected, disproven files deleted
+- NHANES 2021–2023 fetched from CDC (public): `DEMO_L` 11,933 + `BIOPRO_L` 7,199 + `ALB_CR_L` 8,493 + `MCQ_L` 11,744 → expected ~6–7K joinable adults
+- `data/nhanes/NHANES_PROTOCOL.md` written: KDIGO label rule, 10-column quarantine list (eGFR/ACR/creatinine banned from inputs), 3 audit gates — derivation blocked on user approval
+
+### Results
+- **NHANES derivation PASSED all 3 audit gates 2026-10-10:** 5,343 labeled adults (eGFR+ACR complete), 17.3% positive, 0 duplicates; circularity probe (allowed-inputs-only RF) = 86% — real signal, no leak
+- **`data/nhanes/nhanes_ckd_derived.csv` (5,343 × 177) is the big-cohort training set** — 13× UCI-336; quarantine (creatinine/eGFR/ACR banned from inputs) held throughout; v2 re-derivation merged all 10 XPTs (BMI/BP/HbA1c/diabetes now present, cohort unchanged, gates re-passed with 83 allowed inputs at 86%)
+- Next: harmonize to 24-field schema → retrain loop → validate → promote
+
+## Phase 4 — CI/CD + Monitoring ⬜ Not started (runs after data track)
 
 ### What was done
 - (Scope: GitHub Actions test → build → push; Prometheus metrics; Grafana dashboard)
