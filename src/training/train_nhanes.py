@@ -47,6 +47,7 @@ from src.preprocessing.preprocess_nhanes import (
     QUARANTINE_11,
     assert_quarantine,
     build_native_pipeline,
+    cycle_holdout_split,
     get_nhanes_column_lists,
     locked_holdout_split,
 )
@@ -167,7 +168,22 @@ def load_native_frame():
             == str(positive_label).strip().lower()
         ).astype(int)
     X = df[numeric_cols + categorical_cols]
-    return X, y, numeric_cols, categorical_cols
+    cycle = df["SDDSRVYR"] if "SDDSRVYR" in df.columns else pd.Series(np.nan, index=X.index)
+    return X, y, numeric_cols, categorical_cols, cycle
+
+
+def split_native(X: pd.DataFrame, y: pd.Series, cycle: pd.Series):
+    """Hold out the configured cycle when set, else the locked random split."""
+    holdout_cycle = load_config()["data"].get("nhanes_holdout_cycle")
+    if holdout_cycle is None:
+        return locked_holdout_split(X, y)
+    dev, hold, y_dev, y_hold = cycle_holdout_split(X, y, cycle, holdout_cycle)
+    log.info(
+        f"Forward split: holdout cycle {holdout_cycle} "
+        f"({len(hold)} rows, {int(y_hold.sum())} positive), "
+        f"fit pool {len(dev)} rows"
+    )
+    return dev, hold, y_dev, y_hold
 
 
 def run_cv_native(
@@ -285,10 +301,10 @@ def threshold_for_recall(y_true, y_proba, target_recall: float) -> float:
 
 def run_experiment_native(name: str = "logistic-regression", cv_stats: dict = None) -> dict:
     """Refit the winning config on full dev, score the holdout once, log Claim-2."""
-    X, y, numeric_cols, categorical_cols = load_native_frame()
+    X, y, numeric_cols, categorical_cols, cycle = load_native_frame()
     assert_quarantine(X)  # gate on the training frame, before any split or fit
 
-    X_dev, X_hold, y_dev, y_hold = locked_holdout_split(X, y)
+    X_dev, X_hold, y_dev, y_hold = split_native(X, y, cycle)
     if cv_stats is None:
         cv_stats = run_cv_native(name, X_dev, y_dev, numeric_cols, categorical_cols)
 
@@ -402,9 +418,9 @@ def run_experiment_native(name: str = "logistic-regression", cv_stats: dict = No
 
 
 def main():
-    X, y, numeric_cols, categorical_cols = load_native_frame()
+    X, y, numeric_cols, categorical_cols, cycle = load_native_frame()
     assert_quarantine(X)
-    X_dev, X_hold, y_dev, y_hold = locked_holdout_split(X, y)  # holdout sealed
+    X_dev, X_hold, y_dev, y_hold = split_native(X, y, cycle)  # holdout sealed
     cv_results = sweep_native(X_dev, y_dev, numeric_cols, categorical_cols)
     print("CV SUMMARY (dev-only folds; holdout untouched):")
     for name, cv in cv_results.items():

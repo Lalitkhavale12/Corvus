@@ -12,7 +12,10 @@ data:
   categorical_cols: ["rbc", "pc", "pcc", "ba", "htn", "dm", "cad", "appet", "pe", "ane"]
   # Phase 7 NHANES-native keys (additive only — never rename the UCI keys above).
   # Merged v2 derivation per D-01, unweighted per D-02.
-  nhanes_csv: "data/nhanes/nhanes_ckd_derived.csv"
+  nhanes_csv: "data/nhanes/nhanes_ckd_multi.csv"
+  # Forward split: the named SDDSRVYR cycle is held out whole. Set null to
+  # fall back to the locked random split (single-cycle cohorts only).
+  nhanes_holdout_cycle: 12
   nhanes_target_column: "ckd"
   nhanes_positive_label: 1
   nhanes_numeric_cols: ["RIDAGEYR", "INDFMPIR", "LBDSBUSI", "LBDSGLSI",
@@ -65,7 +68,7 @@ api:
   pinned_version: "9"
   # v2 (NHANES-native challenger) serving slot; empty until the human gate
   # promotes a challenger version (D-04). v1 pin above is untouched.
-  v2_pinned_version: ""
+  v2_pinned_version: "15"
   # tracking_uri honors MLFLOW_TRACKING_URI env with mlruns fallback (see
   # scripts/promote_production.py and api/model_loader.py); static default here.
   tracking_uri: "mlruns"

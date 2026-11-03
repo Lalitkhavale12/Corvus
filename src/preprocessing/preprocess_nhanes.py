@@ -163,3 +163,15 @@ def locked_holdout_split(
     return train_test_split(
         X, y, test_size=test_size, random_state=random_state, stratify=y
     )
+
+
+def cycle_holdout_split(
+    X: pd.DataFrame, y: pd.Series, cycle: pd.Series, holdout_cycle
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+    """Forward split: the whole named NHANES cycle becomes the holdout.
+
+    Pools leave-one-cycle-out so the holdout is a later cohort than anything
+    the pipeline was fitted on, never a random slice of the same one.
+    """
+    mask = cycle == holdout_cycle
+    return X[~mask], X[mask], y[~mask], y[mask]
