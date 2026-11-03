@@ -153,6 +153,47 @@ class _StubPipeline:  # noqa: E402
         return np.zeros((len(df), 4))
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_model_loader(monkeypatch):
+    """Boot the app even when the MLflow store has no artifacts.
+
+    `mlruns/` is gitignored, so CI has no registry on disk. Each loader is
+    wrapped: it uses the real registry when it resolves, and falls back to
+    the same stubs the API tests use when it does not. Tests therefore
+    exercise API behaviour instead of failing on artifact I/O, while a
+    developer machine with real artifacts still loads the real models.
+    """
+
+    def _or_stub(real, stub):
+        def load(*args, **kwargs):
+            try:
+                return real(*args, **kwargs)
+            except Exception:  # noqa: BLE001 - any registry miss falls back
+                return stub(*args, **kwargs)
+
+        return load
+
+    import api.model_loader as ml
+
+    stamp = lambda version: (  # noqa: E731
+        _StubEstimator(),
+        _StubPipeline(),
+        "run-stub",
+        version,
+    )
+    monkeypatch.setattr(
+        ml, "load_serving_artifacts", _or_stub(ml.load_serving_artifacts, stamp)
+    )
+    monkeypatch.setattr(
+        ml, "load_v2_artifacts", _or_stub(ml.load_v2_artifacts, stamp)
+    )
+    monkeypatch.setattr(
+        ml,
+        "load_v2_threshold",
+        _or_stub(ml.load_v2_threshold, lambda version: 0.5),
+    )
+
+
 @pytest.fixture
 def auth_client(monkeypatch):
     """TestClient with auth headers and stubbed model loader.

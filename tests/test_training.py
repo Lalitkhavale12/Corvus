@@ -6,9 +6,19 @@ all-configs test to the full 9-config slate (D-01).
 
 import mlflow
 import pandas as pd
+import pytest
 
 from src.preprocessing.preprocess import LINEAGE_ID_COL, LINEAGE_ROW_COL
 from src.training import train as train_mod
+from src.utils.config import PROJECT_ROOT, load_config
+
+# The raw splits are gitignored (real patient data), so CI never has them.
+# Tests that need them are skipped there rather than failing on I/O.
+_RAW_DIR = PROJECT_ROOT / load_config()["data"]["processed_dir"]
+needs_raw_splits = pytest.mark.skipif(
+    not all((_RAW_DIR / f"{s}_raw.csv").exists() for s in ("train", "val", "test")),
+    reason="requires the gitignored data/processed/*_raw.csv splits",
+)
 
 
 def test_all_nine_configs_construct():
@@ -51,6 +61,7 @@ def test_mlp_activations_valid():
     assert len(train_mod.ESTIMATORS) + len(mlp_mod.ACTIVATIONS) == 9
 
 
+@needs_raw_splits
 def test_lineage_excluded_feature_count_24():
     (X_train, _), _, _ = train_mod.load_raw_splits()
     assert LINEAGE_ROW_COL not in X_train.columns
@@ -58,6 +69,7 @@ def test_lineage_excluded_feature_count_24():
     assert len(X_train.columns) == 24  # Claim 2 training-input contract
 
 
+@needs_raw_splits
 def test_loader_reads_raw_only(monkeypatch):
     import src.training.train as tm
 
@@ -77,6 +89,7 @@ def test_loader_reads_raw_only(monkeypatch):
     ), seen
 
 
+@needs_raw_splits
 def test_run_logs_pipeline_and_model(tmp_path, monkeypatch):
     import src.training.train as tm
 

@@ -1,0 +1,39 @@
+name: CI
+
+# One job, one Python version, no soft failures: if the suite is red, the
+# branch is red. Docker image builds and deployment are intentionally absent
+# until they can be verified locally - a job nobody has run is not a gate.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          # Matches the interpreter the suite is developed against.
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        # The real NHANES CSV splits and the MLflow store are gitignored, so
+        # the suite stubs their loaders and skips the data-dependent tests.
+        run: python -m pytest tests -q
