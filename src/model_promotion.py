@@ -22,6 +22,85 @@ from src.utils.logger import get_logger
 
 log = get_logger()
 
+#: A challenger must reach this holdout ROC-AUC before it may replace the
+#: champion, however bad the champion has become.
+MIN_DEPLOY_ROC_AUC = 0.80
+#: Rounding guard, not a significance test: differences below this are the
+#: same number twice. Real differences of interest here are >0.02.
+METRIC_TOLERANCE = 0.005
+
+
+def decide_promotion(
+    champion: dict | None,
+    challenger: dict,
+    *,
+    min_roc_auc: float = MIN_DEPLOY_ROC_AUC,
+    tolerance: float = METRIC_TOLERANCE,
+) -> dict:
+    """Champion/challenger verdict from two metric dicts.
+
+    Pure so the policy is testable without a registry. ``champion`` is
+    ``None`` when nothing is pinned yet. Both dicts read ``roc_auc`` and
+    optionally ``pr_auc``.
+
+    The challenger wins only when it is no worse on either ranking metric;
+    a fresh model that ranks worse than the one in production is not an
+    upgrade no matter how new its data is.
+    """
+    challenger_roc = challenger.get("roc_auc")
+    verdict: dict = {"champion": champion, "challenger": challenger}
+
+    if challenger_roc is None:
+        return {**verdict, "promote": False, "reason": "challenger ROC-AUC unavailable"}
+    if challenger_roc < min_roc_auc:
+        return {
+            **verdict,
+            "promote": False,
+            "reason": (
+                f"challenger ROC-AUC {challenger_roc:.4f} below the "
+                f"{min_roc_auc:.2f} deployment floor"
+            ),
+        }
+    if champion is None:
+        return {**verdict, "promote": True, "reason": "no champion pinned yet"}
+
+    champion_roc = champion.get("roc_auc")
+    if champion_roc is None:
+        return {
+            **verdict,
+            "promote": False,
+            "reason": "champion ROC-AUC unavailable, refusing to promote blind",
+        }
+    if challenger_roc < champion_roc - tolerance:
+        return {
+            **verdict,
+            "promote": False,
+            "reason": (
+                f"challenger ROC-AUC {challenger_roc:.4f} is worse than "
+                f"champion {champion_roc:.4f}"
+            ),
+        }
+
+    champion_pr = champion.get("pr_auc")
+    challenger_pr = challenger.get("pr_auc")
+    if champion_pr is not None and challenger_pr is not None:
+        if challenger_pr < champion_pr - tolerance:
+            return {
+                **verdict,
+                "promote": False,
+                "reason": (
+                    f"challenger PR-AUC {challenger_pr:.4f} below champion "
+                    f"{champion_pr:.4f} despite matching ROC-AUC"
+                ),
+            }
+
+    return {
+        **verdict,
+        "promote": True,
+        "reason": "no worse on ROC-AUC or PR-AUC",
+    }
+
+
 
 def get_model_versions(model_name: str = "corvus-ckd") -> list[dict]:
     """Get all model versions from MLflow model registry."""

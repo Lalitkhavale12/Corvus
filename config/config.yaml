@@ -63,6 +63,14 @@ mlflow:
   experiment_name: "corvus-ckd"
   nhanes_experiment_name: "corvus-ckd-nhanes"
 
+# Claim 5 retraining triggers (read by airflow/dags/corvus_drift_retrain.py).
+# A trigger fires independently; any single fire runs a retrain.
+retrain:
+  schedule_days: 30       # champion older than this retrains regardless
+  drift_threshold: 0.3    # share of drifted features that counts as drift
+  min_new_rows: 500       # new production rows that justify a retrain
+  roc_floor: 0.80         # labelled-batch ROC-AUC below which we must retrain
+
 api:
   model_name: "corvus-ckd"
   pinned_version: "9"

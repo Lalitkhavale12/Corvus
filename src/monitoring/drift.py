@@ -162,10 +162,11 @@ def check_drift_thresholds(
         Dictionary with drift check results
     """
     share_drifted = data_drift_result.get("share_drifted_features", 0.0)
-    n_drifted = data_drift_result.get("n_drifted_features", 0)
-    n_features = data_drift_result.get("n_features", 0)
 
-    data_drift_exceeded = share_drifted > drift_threshold or n_drifted > 0
+    # Only a share of drifted features counts as dataset drift. Firing on
+    # ``n_drifted > 0`` would trigger on any single column out of 23, which
+    # is the normal state of a live clinical feed, not a drift event.
+    data_drift_exceeded = share_drifted > drift_threshold
 
     target_drift_exceeded = False
     if target_drift_result:
