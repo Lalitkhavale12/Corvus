@@ -8,6 +8,8 @@ real MLflow) so the app lifespan can start in tests.
 from __future__ import annotations
 
 import os
+import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -24,10 +26,12 @@ import src.database as _db_module  # noqa: E402
 _db_module._engine = None  # type: ignore[attr-defined]
 _db_module._SessionLocal = None  # type: ignore[attr-defined]
 
-os.environ["DATABASE_URL"] = "sqlite:///./test_predictions.db"
+# Kept in the OS temp dir so test runs never litter the repo root.
+_DB_PATH = Path(tempfile.gettempdir()) / "corvus_test_predictions.db"
+os.environ["DATABASE_URL"] = f"sqlite:///{_DB_PATH.as_posix()}"
 
-if os.path.exists("test_predictions.db"):
-    os.remove("test_predictions.db")
+if _DB_PATH.exists():
+    _DB_PATH.unlink()
 
 # Create all tables (users, profiles, predictions, predictions_v2) once.
 engine = get_engine()

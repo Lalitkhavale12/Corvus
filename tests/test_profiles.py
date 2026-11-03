@@ -7,6 +7,8 @@ PostgreSQL. Tables are created once per session.
 from __future__ import annotations
 
 import os
+import tempfile
+from pathlib import Path
 
 # Reset the auth DB engine cache so this test file gets its own SQLite
 # database (test_auth.py caches the engine under test_auth.db).
@@ -15,10 +17,12 @@ import src.database as _db_module  # noqa: E402
 _db_module._engine = None  # type: ignore[attr-defined]
 _db_module._SessionLocal = None  # type: ignore[attr-defined]
 
-os.environ["DATABASE_URL"] = "sqlite:///./test_profiles.db"
+# Kept in the OS temp dir so test runs never litter the repo root.
+_DB_PATH = Path(tempfile.gettempdir()) / "corvus_test_profiles.db"
+os.environ["DATABASE_URL"] = f"sqlite:///{_DB_PATH.as_posix()}"
 
-if os.path.exists("test_profiles.db"):
-    os.remove("test_profiles.db")
+if _DB_PATH.exists():
+    _DB_PATH.unlink()
 
 from fastapi.testclient import TestClient  # noqa: E402
 

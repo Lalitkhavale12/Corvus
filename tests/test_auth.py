@@ -7,13 +7,17 @@ PostgreSQL. Tables are created once per session.
 from __future__ import annotations
 
 import os
+import tempfile
+from pathlib import Path
 
-# Use SQLite for auth tests so they run without PostgreSQL
-os.environ["DATABASE_URL"] = "sqlite:///./test_auth.db"
+# Use SQLite for auth tests so they run without PostgreSQL.
+# Kept in the OS temp dir so test runs never litter the repo root.
+_DB_PATH = Path(tempfile.gettempdir()) / "corvus_test_auth.db"
+os.environ["DATABASE_URL"] = f"sqlite:///{_DB_PATH.as_posix()}"
 
 # Clean up any leftover test database from previous runs
-if os.path.exists("test_auth.db"):
-    os.remove("test_auth.db")
+if _DB_PATH.exists():
+    _DB_PATH.unlink()
 
 from fastapi.testclient import TestClient
 

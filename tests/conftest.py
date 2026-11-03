@@ -162,17 +162,20 @@ def auth_client(monkeypatch):
     file locks on Windows.
     """
     import os
+    import tempfile
+    from pathlib import Path
 
     import src.database as _db_module  # noqa: E402
 
     _db_module._engine = None  # type: ignore[attr-defined]
     _db_module._SessionLocal = None  # type: ignore[attr-defined]
 
-    os.environ["DATABASE_URL"] = "sqlite:///./test_auth_client.db"
-    db_path = "./test_auth_client.db"
+    # Kept in the OS temp dir so test runs never litter the repo root.
+    db_path = Path(tempfile.gettempdir()) / "corvus_test_auth_client.db"
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_path.as_posix()}"
     try:
-        if os.path.exists(db_path):
-            os.remove(db_path)
+        if db_path.exists():
+            db_path.unlink()
     except PermissionError:
         pass  # File locked by a previous test; tables are idempotent
 

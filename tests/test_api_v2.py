@@ -9,6 +9,7 @@ unconfigured v2, batch guards, isolated v2 logging, and v1 regression.
 
 import csv
 import io
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -22,6 +23,9 @@ from api.app import COLUMN_ORDER, COLUMN_ORDER_V2, MAX_BATCH_BYTES, MAX_BATCH_RO
 from api.db import PredictionLog, PredictionLogV2
 from src.preprocessing.preprocess_nhanes import get_nhanes_column_lists
 from src.training.train_nhanes import NATIVE_PIPELINE_FILENAME
+
+# Stub DB lives in the OS temp dir so test runs never litter the repo root.
+_V2_STUB_DB_URL = f"sqlite:///{(Path(tempfile.gettempdir()) / 'corvus_test_v2_stub.db').as_posix()}"
 
 # Derived from config, not hardcoded: the numeric/categorical split moves
 # whenever the native allow-list grows.
@@ -87,7 +91,7 @@ def mock_session(monkeypatch):
 @pytest.fixture
 def dual_serving_stub(monkeypatch, mock_session):  # noqa: ARG001
     """Dual-slot stub: v1 serves 9, v2 serves 11, log store mocked."""
-    monkeypatch.setenv("DATABASE_URL", "sqlite:///./test_v2_stub.db")
+    monkeypatch.setenv("DATABASE_URL", _V2_STUB_DB_URL)
     monkeypatch.delenv("MODEL_VERSION_V2", raising=False)
     monkeypatch.setattr(db_mod, "create_tables", lambda *a, **k: True)
     monkeypatch.setattr(
@@ -109,7 +113,7 @@ def dual_serving_stub(monkeypatch, mock_session):  # noqa: ARG001
 @pytest.fixture
 def unconfigured_v2_stub(monkeypatch, mock_session):  # noqa: ARG001
     """No challenger pin: every /v2 route must fail closed with 503."""
-    monkeypatch.setenv("DATABASE_URL", "sqlite:///./test_v2_stub.db")
+    monkeypatch.setenv("DATABASE_URL", _V2_STUB_DB_URL)
     monkeypatch.delenv("MODEL_VERSION_V2", raising=False)
     monkeypatch.setattr(db_mod, "create_tables", lambda *a, **k: True)
     monkeypatch.setattr(
