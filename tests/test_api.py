@@ -264,3 +264,12 @@ def test_batch_db_unavailable_returns_503(valid_batch_csv, auth_client, monkeypa
         files={"file": ("batch.csv", valid_batch_csv, "text/csv")},
     )
     assert resp.status_code == 503
+
+def test_metrics_endpoint_exposes_prometheus_text():
+    # Phase 4 monitoring hook: /metrics is the scrape target, unauthenticated
+    # on purpose so Prometheus needs no credentials.
+    client = TestClient(app)
+    resp = client.get("/metrics")
+    assert resp.status_code == 200
+    assert "text/plain" in resp.headers["content-type"]
+    assert "corvus_requests_total" in resp.text or "http_requests_total" in resp.text
