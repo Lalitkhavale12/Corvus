@@ -58,7 +58,7 @@ listed as open below rather than assumed compliant.
 |---|---|---|---|
 | **Claim 2** | Fitted preprocessing pipeline stored as MLflow artifact, same run as model | ✅ **Pipeline object exists and is fitted correctly** (leak-safe). MLflow logging itself happens in Phase 2, when training code loads `preprocessing_pipeline.joblib` and calls `mlflow.log_artifact()` inside the training run. | `src/preprocessing/preprocess.py` |
 | **Claim 4** | Log deployed model version per prediction | ⬜ Not built (Phase 4) | Needs a `model_version` field in the prediction-log schema and DB table; FastAPI must resolve current production version from the MLflow Registry per request |
-| **Claim 5** | 5 Airflow trigger types + champion/challenger promotion + archived retention | ⬜ Not built (Phase 9) | MLflow Registry's Staging/Production/Archived stages cover "archived retention" natively. Trigger types + promotion logic still need design work in Phase 9 |
+| **Claim 5** | 5 Airflow trigger types + champion/challenger promotion + archived retention | ✅ Built | `src/monitoring/retrain_triggers.py` (schedule, drift, performance, data volume, manual), `src/model_promotion.py:decide_promotion` (challenger must clear a 0.80 ROC-AUC floor and be no worse on ROC-AUC/PR-AUC), `airflow/dags/corvus_drift_retrain.py` (daily 02:00, branches on the verdict, retrains for real), `scripts/promote_production.py` (Production stage, previous versions archived) |
 | **Component 102** | Standalone data visualization module | ⬜ Not built | No `src/visualization/` yet — tracked below, not forgotten |
 | Claims 1, 3 | Unknown | ⬜ Not reviewed | Full claim text not yet shared |
 
@@ -189,7 +189,7 @@ Corvus/
 │
 ├── models/                             ⬜ MLflow Registry (Staging/Production/Archived — Claim 5)
 ├── mlruns/                             ⬜ Phase 2
-├── airflow/                            ⬜ dags/ to be added in Phase 9 (Claim 5)
+├── airflow/                            ✅ dags/corvus_drift_retrain.py (Claim 5)
 ├── docker/                             ⬜ Phase 5
 ├── api/                                ⬜ schemas/ to be added in Phase 4 (Claim 4)
 ├── frontend/                           ⬜ Phase 4 (Streamlit)
