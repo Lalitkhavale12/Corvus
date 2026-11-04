@@ -46,7 +46,6 @@ def resolve_version(argv: list[str]) -> str:
 
 
 def main() -> int:
-    version = None
     try:
         cfg = load_config()
         tracking_uri = os.environ.get(
