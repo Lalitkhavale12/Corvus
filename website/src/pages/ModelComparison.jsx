@@ -10,7 +10,7 @@ export function ModelComparison() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [models, setModels] = useState([]);
-  const [championVersion, setChampionVersion] = useState("9");
+  const [championVersion, setChampionVersion] = useState("15");
   const [challengerVersion, setChallengerVersion] = useState("11");
   const [comparison, setComparison] = useState(null);
   const [loading, setLoading] = useState(true);

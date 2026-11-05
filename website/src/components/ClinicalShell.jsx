@@ -156,6 +156,10 @@ export function ClinicalShell({ title, subtitle, actions, children }) {
         </header>
 
         <main className="flex-1 overflow-x-hidden px-4 py-5 sm:px-6">{children}</main>
+        <p className="border-t border-outline-variant px-4 py-2 text-[10px] leading-relaxed text-on-surface-variant sm:px-6">
+          Screening aid only, not a diagnosis. High-recall/low-precision model, so a
+          positive flag needs clinical confirmation.
+        </p>
       </div>
     </div>
   );

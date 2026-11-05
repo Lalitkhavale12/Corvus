@@ -30,7 +30,7 @@ export function Dashboard() {
   return (
     <ClinicalShell
       title="NHANES Assessment"
-      subtitle="Submit vitals and labs to call /v2/predict (Model v11)"
+      subtitle="Submit vitals and labs to call /v2/predict (Model v15)"
       actions={
         <Link to="/history">
           <Button variant="secondary" size="sm">
@@ -54,7 +54,7 @@ export function Dashboard() {
               <CheckCircle2 className="size-3.5" /> /v2/predict active
             </span>
             <span className="inline-flex items-center gap-1.5 rounded border border-outline-variant px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
-              v11
+              v15
             </span>
           </div>
         </div>
@@ -62,7 +62,7 @@ export function Dashboard() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <StatCard label="Assessments (this session)" value={recent.length} hint="Stored locally until history endpoint ships" />
           <StatCard label="Serving endpoint" value="/v2/predict" hint="POST • JSON • version-stamped" />
-          <StatCard label="Serving model" value="v11" hint="GradientBoosting • NHANES-native" />
+          <StatCard label="Serving model" value="v15" hint="GradientBoosting • NHANES-native" />
         </div>
 
         <Card>
