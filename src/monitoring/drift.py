@@ -13,13 +13,36 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import pandas as pd
-from evidently.report import Report
-from evidently.metric_preset import DataDriftPreset, TargetDriftPreset
+
+# Evidently 0.7 moved the 0.4-era API (and its report dict shape) under
+# `evidently.legacy`. Pinned to <0.8 in requirements.txt until this module is
+# rewritten against the new descriptors API.
+from evidently.legacy.report import Report
+from evidently.legacy.metric_preset import DataDriftPreset, TargetDriftPreset
 
 from src.utils.config import load_config
 from src.utils.logger import get_logger
 
 log = get_logger()
+
+
+def _metric_value(report_dict: dict, index: int) -> dict:
+    """One metric's payload. Evidently 0.7 nests it under ``result``, 0.4 used ``value``."""
+    metric = report_dict["metrics"][index]
+    return metric.get("result") or metric.get("value") or {}
+
+
+def _per_column_drift(report_dict: dict) -> dict:
+    """The ``drift_by_columns`` table, wherever this evidently version puts it.
+
+    0.4 nested it inside the dataset-level metric; 0.7 emits it as a separate
+    ``DataDriftTable`` metric.
+    """
+    for metric in report_dict.get("metrics", []):
+        value = metric.get("result") or metric.get("value") or {}
+        if "drift_by_columns" in value:
+            return value["drift_by_columns"]
+    return {}
 
 
 def load_config_section(key: str) -> dict:
@@ -56,15 +79,16 @@ def detect_data_drift(
     )
 
     result = report.as_dict()
+    summary = _metric_value(result, 0)
 
     # Extract drift metrics
     drift_results = {
         "timestamp": datetime.utcnow().isoformat(),
-        "dataset_drift": report.as_dict()["metrics"][0]["value"]["dataset_drift"],
-        "n_features": report.as_dict()["metrics"][0]["value"]["n_features"],
-        "n_drifted_features": report.as_dict()["metrics"][0]["value"]["n_drifted_features"],
-        "share_drifted_features": report.as_dict()["metrics"][0]["value"]["share_drifted_features"],
-        "feature_drift_details": report.as_dict()["metrics"][0]["value"]["drift_by_columns"],
+        "dataset_drift": summary["dataset_drift"],
+        "n_features": summary["number_of_columns"],
+        "n_drifted_features": summary["number_of_drifted_columns"],
+        "share_drifted_features": summary["share_of_drifted_columns"],
+        "feature_drift_details": _per_column_drift(result),
     }
 
     log.info(
@@ -118,14 +142,15 @@ def detect_target_drift(
     )
 
     result = report.as_dict()
+    value = _metric_value(result, 0)
 
     drift_results = {
         "timestamp": datetime.utcnow().isoformat(),
-        "target_drift_detected": report.as_dict()["metrics"][0]["value"].get("drift_detected", False),
-        "drift_score": report.as_dict()["metrics"][0]["value"].get("drift_score", 0.0),
-        "stat_test_name": report.as_dict()["metrics"][0]["value"].get("stat_test_name", ""),
-        "stat_test_value": report.as_dict()["metrics"][0]["value"].get("stat_test_value", 0.0),
-        "stat_test_threshold": report.as_dict()["metrics"][0]["value"].get("stat_test_threshold", 0.0),
+        "target_drift_detected": value.get("drift_detected", False),
+        "drift_score": value.get("drift_score", 0.0),
+        "stat_test_name": value.get("stattest_name") or value.get("stat_test_name", ""),
+        "stat_test_value": value.get("stat_test_value", 0.0),
+        "stat_test_threshold": value.get("stattest_threshold") or value.get("stat_test_threshold", 0.0),
     }
 
     log.info(

@@ -1,5 +1,7 @@
 # --- Core (Phase 1: data pipeline) ---
-pandas>=2.0
+# Upper bounds are load-bearing: evidently 0.7 imports pandas internals that
+# pandas 3 removed, and the DAG is written against the Airflow 2 API.
+pandas>=2.0,<3.0
 numpy>=1.24
 scikit-learn>=1.3
 joblib>=1.3
@@ -43,8 +45,8 @@ PyJWT>=2.9
 email-validator>=2.0
 
 # --- Later phases ---
-evidently>=0.4          # Phase 5: drift detection
-apache-airflow>=2.8     # Phase 5: retraining orchestration
+evidently>=0.7,<0.8  # Phase 5: drift detection (src/monitoring/drift.py uses the legacy API)
+apache-airflow>=2.8,<3.0  # Phase 5: retraining orchestration (DAG targets the 2.x API)
 prometheus-client>=0.20 # Phase 4: monitoring
 
 black
