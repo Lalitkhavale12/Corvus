@@ -27,12 +27,11 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from airflow import DAG
 from airflow.operators.python import BranchPythonOperator, PythonOperator
-from airflow.utils.dates import days_ago
 
 # The DAG lives at <repo>/airflow/dags/, so the repo root is two levels up.
 # CORVUS_PROJECT_ROOT overrides when Airflow mounts the project elsewhere.
@@ -79,8 +78,8 @@ dag = DAG(
     "corvus_drift_retrain",
     default_args=default_args,
     description="Five retrain triggers, real retrain, champion/challenger verdict",
-    schedule_interval="0 2 * * *",
-    start_date=days_ago(1),
+    schedule="0 2 * * *",
+    start_date=datetime.now(timezone.utc) - timedelta(days=1),
     catchup=False,
     max_active_runs=1,
     tags=["drift", "retrain", "ml", "production"],

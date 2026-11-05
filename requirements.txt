@@ -46,7 +46,9 @@ email-validator>=2.0
 
 # --- Later phases ---
 evidently>=0.7,<0.8  # Phase 5: drift detection (src/monitoring/drift.py uses the legacy API)
-apache-airflow>=2.8,<3.0  # Phase 5: retraining orchestration (DAG targets the 2.x API)
+# Airflow 3, not 2: api/db.py uses the SQLAlchemy 2.0 ORM (DeclarativeBase),
+# and Airflow 2 caps SQLAlchemy below 2.0 -- the two cannot coexist.
+apache-airflow>=3.2,<4.0  # Phase 5: retraining orchestration
 prometheus-client>=0.20 # Phase 4: monitoring
 
 black
