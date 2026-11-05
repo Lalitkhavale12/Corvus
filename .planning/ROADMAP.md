@@ -164,7 +164,7 @@
 
 ## Phase 5: Drift Detection + Auto-Retraining
 
-**Status**: 🟡 ~80% (Claim 5 code complete; Airflow is not a Compose service and the DAG has never run live)
+**Status**: ✅ Complete (Claim 5 code complete; Airflow 3 runs as a Compose service and `airflow dags test` succeeds in-container. Scheduler UI not yet opened; every trigger correctly reported "no evidence" until real traffic exists)
 **Delivers**: Evidently AI drift reports, Airflow DAGs, champion/challenger promotion
 **Patent impact**: Claim 5 (5 trigger types + promotion + archived retention)
 **Depends on**: Phase 4 (monitoring infrastructure)

@@ -1,15 +1,15 @@
 ---
 gsd_state_version: "1.0"
 status: active
-stopped_at: M1 code complete (P1/P2/P3/P4/P7/P8); P5 Airflow service + P6 polish remain
+stopped_at: P5 Airflow verified in-container (DAG run success, CI green); P6 polish (browser E2E, architecture diagram) remains
 last_updated: "2026-11-05"
-state_head: 6fc2dc9
+state_head: 5fb9c37
 progress:
   total_phases: 8
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 15
   completed_plans: 13
-  percent: 85
+  percent: 90
 current_phase_name: Drift Automation + Polish (final M1 gaps)
 ---
 # Project State — Corvus
@@ -18,9 +18,9 @@ current_phase_name: Drift Automation + Polish (final M1 gaps)
 
 ## Current Position
 
-- **Milestone**: M1 (Initial Build) — ~85% (6 of 8 phases code-complete)
-- **Active Phase**: Phase 5 — Drift + Auto-Retraining (code complete, Airflow not yet a Compose service) and Phase 6 — Visualization + Polish
-- **Next Phase**: close M1 — Airflow service in Compose, E2E/integration pass, README + architecture diagram
+- **Milestone**: M1 (Initial Build) — ~90% (7 of 8 phases code-complete)
+- **Active Phase**: Phase 6 — Visualization + Polish (browser E2E, architecture diagram)
+- **Next Phase**: close M1, then the container demo (stale `docker/.mlruns.container`) and the Indian-data intake
 - **Blocked**: nothing design-level; only the stale `docker/.mlruns.container` copy stands between here and a container demo
 
 ## Phase Status
@@ -33,7 +33,7 @@ current_phase_name: Drift Automation + Polish (final M1 gaps)
 | 7 — NHANES Native Retrain | ✅ Complete (v15 served) | 2026-11-05 |
 | 8 — Web Platform + Authentication | ✅ Code complete (8-01…8-05 built; 8-02…8-05 plans uncommitted; no browser E2E) | 2026-11-05 |
 | 4 — CI/CD + Monitoring | ✅ Complete (CI gate, `/metrics`, Prometheus + Grafana in Compose; image build/push deliberately omitted) | 2026-11-05 |
-| 5 — Drift + Retraining | 🟡 ~80% (5 triggers, drift, champion/challenger, DAG written; Airflow not a Compose service, DAG never run live) | 2026-11-05 |
+| 5 — Drift + Retraining | ✅ Complete (5 triggers, drift, champion/challenger, Airflow 3 service; `dags test` ran end-to-end in-container — scheduler UI not yet opened) | 2026-11-05 |
 | 6 — Visualization + Polish | 🟡 ~70% (`src/visualization` + 9 tests, docs pass; E2E, architecture diagram, README still stale) | 2026-11-05 |
 
 ## Current Work
@@ -42,15 +42,23 @@ current_phase_name: Drift Automation + Polish (final M1 gaps)
 
 - ✅ Model **v15** is the served version (`config/config.yaml:71` `v2_pinned_version: "15"`); `/v2/predict` live prob had been 0.8724 at threshold 0.1026
 - ✅ v15 holdout: ROC-AUC **0.8214**, precision **0.3239**, recall **0.8378** — high-recall/low-precision, so the product is framed as a **screening aid, not a diagnosis**
-- ✅ Full suite at HEAD: **148 passed, 1 skipped** (`python -m pytest tests -q`, ~167 s)
+- ✅ Suite: **152 passed** in a clean CI replica (py3.13 + `requirements.txt`); **149 passed, 2 skipped** in the local conda env, where evidently is absent
 - ⚠️ Docker demo is stale: `docker/docker-compose.yml:51` pins `MODEL_VERSION_V2: "11"` and `docker/.mlruns.container` only holds versions 1–9. Re-sync via `docker/sync_mlruns_container.py` and pin 15 before any container demo
-- ⚠️ Origin is ~12 commits behind `main`; CI (`.github/workflows/ci.yml`) has not run remotely yet
+- ✅ CI green: run `41989707620` on `5fb9c37` (first-green run; the two red ones were a real evidently-0.7 API break plus an Airflow-2/SQLAlchemy-2 conflict)
 
 ### Docs/polish pass (this session)
 
 - ✅ `STATE.md` + `ROADMAP.md` refreshed against the real tree (this file)
 - ✅ `docs/dataset_requirements.md` class-balance floor amended 20% → 10%
 - ✅ Website copy: stale "Model v11" removed, screening disclaimer added to shared shell
+
+### CI + Airflow (this session)
+
+- ✅ CI red → green in four commits: `0ace802` (evidently 0.7 legacy API + deps), `088467e` (compose env path, Airflow service, libgomp1), `5fb9c37` (Airflow 3 port)
+- ✅ `src/monitoring/drift.py` parse had never run against an installed evidently — the suite skipped it — so every key it read was silently wrong. Fixed + covered by `tests/test_drift.py` (two real reports)
+- ✅ Airflow 2 is impossible here: it caps `sqlalchemy<2.0` while `api/db.py` uses the 2.0 ORM. DAG now targets Airflow 3 (`schedule=`, no `days_ago`)
+- ✅ In-container `airflow dags test` → `success`; all five triggers degraded to `None` with reasons, branch took `skip_retraining` (no MLflow, no drift report, no labelled batch yet)
+- ⚠️ Airflow cannot run on Windows at all (`fcntl`), so scheduler/UI verification belongs to the container; `dags list` before the dag-processor serializes reports "No data found" (expected, not a defect)
 
 ## Completed Work
 
