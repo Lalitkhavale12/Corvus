@@ -21,7 +21,7 @@ current_phase_name: Drift Automation + Polish (final M1 gaps)
 - **Milestone**: M1 (Initial Build) — ~85% (6 of 8 phases code-complete)
 - **Active Phase**: Phase 5 — Drift + Auto-Retraining (code complete, Airflow not yet a Compose service) and Phase 6 — Visualization + Polish
 - **Next Phase**: close M1 — Airflow service in Compose, E2E/integration pass, README + architecture diagram
-- **Blocked**: screening-vs-diagnostic copy sign-off; Alembic `0004` go/no-go; ~12 commits unpushed so CI has not actually run
+- **Blocked**: nothing design-level; only the stale `docker/.mlruns.container` copy stands between here and a container demo
 
 ## Phase Status
 
@@ -127,23 +127,25 @@ current_phase_name: Drift Automation + Polish (final M1 gaps)
 | D15 | Email/password auth only for MVP; Google OAuth deferred | 2026-10-23 | Simpler implementation; OAuth can be added later |
 | D16 | Doctor self-registration with no admin gate | 2026-10-23 | Faster onboarding; access control can be tightened later |
 | D17 | React + Vite + Tailwind for frontend website | 2026-10-23 | Industry standard, fast dev, responsive design, easy to learn |
+| D18 | Product framed as a **screening aid, not a diagnosis** | 2026-11-05 | v15 ships precision 0.32 at recall 0.84; a positive flag is a referral trigger, not a finding. Owner confirmed |
+| D19 | No Alembic migration for `predictions`/`predictions_v2` | 2026-11-05 | `api/db.py` `create_all` already owns them and `alembic/env.py` targets the auth `Base`; a migration would create a second source of truth. Owner confirmed keep-as-is |
+| D20 | Docker images are not built or pushed in CI | 2026-11-05 | A build job nobody has run locally is not a gate; add it once a local `docker build` is verified |
 
 ## Open Questions
 
 1. Claims 1 and 3 — full text not yet shared, cannot assess compliance
 2. Abu Dhabi EHR file — defer to stretch goal or integrate into core?
-3. Screening vs diagnostic — product copy now assumes **screening** (precision 0.32 makes "diagnosis" indefensible); needs an explicit yes/no from the user
-4. Alembic `0004` for `predictions`/`predictions_v2` — skipped on purpose (`api/db.py` `create_all` already owns those tables; `alembic/env.py` targets the auth `Base` only). Confirm keep-as-is or add the migration
+3. ~~Screening vs diagnostic~~ — **resolved 2026-11-05: screening.** Precision 0.32 makes "diagnosis" indefensible; owner confirmed the copy
+4. ~~Alembic `0004` for `predictions`/`predictions_v2`~~ — **resolved 2026-11-05: keep as-is.** `api/db.py` `create_all` owns those tables and `alembic/env.py` targets the auth `Base` only; a migration would be a second source of truth
 5. Deltas below 0.02 ROC are noise — do not read a version bump as an improvement without the paired CI
 
 ## Context for Next Session
 
 Close M1's remaining gaps, in this order:
-1. Push `main` (~12 commits) so CI actually runs.
+1. ~~Push `main`~~ — done 2026-11-05; CI runs from here on.
 2. Re-sync `docker/.mlruns.container` (holds versions 1–9 only) and bump `MODEL_VERSION_V2` to 15.
 3. Phase 5: add the Airflow service to Compose and run `corvus_drift_retrain` once end-to-end.
 4. Phase 6: integration/E2E pass, architecture diagram, README rewrite (its phase checklist is two generations stale).
-5. Commit the uncommitted `.planning/phases/08-*` plans and `07-PATTERNS.md` / `07-REVIEW.md`.
 
 ## Session
 
