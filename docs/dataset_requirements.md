@@ -18,8 +18,9 @@
 
 - At least 2,000 rows, so a held-out test set can actually separate models
   (the failure 400 rows guarantees).
-- Both classes at least 20% — 97/3 or 92/8 splits are unusable without
-  resampling theater.
+- Both classes at least 10% — the live NHANES cohort is 17.7% positive, so a
+  20% floor would reject the cohort we actually train and ship; 97/3 or 92/8
+  splits are still unusable without resampling theater.
 - Documented selection criteria (clinic cohort, survey, registry), so an
   off-baseline prevalence can be judged rather than guessed.
 
