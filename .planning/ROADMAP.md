@@ -2,7 +2,7 @@
 
 > Milestone: M1 (Initial Build)
 > Status: Active
-> Last updated: 2026-10-23
+> Last updated: 2026-11-05 (HEAD 6fc2dc9)
 
 ## Phase Overview
 
@@ -11,11 +11,11 @@
 | **1** | Data Pipeline | ✅ Complete | FR-1.1 → FR-1.7 | None |
 | **2** | Model Training + Experiment Tracking | ✅ Complete | FR-2.1 → FR-2.5, FR-3.1 → FR-3.3 | Phase 1 |
 | **3** | Prediction API + Containerization | ✅ Complete | FR-4.1 → FR-4.4, FR-5.1 → FR-5.2 | Phase 2 |
-| **7** | NHANES Native Retrain | ✅ Complete | FR-2.1 → FR-4.3 | Phase 3 |
-| **8** | Web Platform + Authentication | 🔄 In Progress | FR-9.1 → FR-9.6, FR-10.1 → FR-10.3 | Phase 3 |
-| **4** | CI/CD + Monitoring | ⬜ Not Started | FR-6.1, FR-7.1 → FR-7.2 | Phase 8 |
-| **5** | Drift Detection + Auto-Retraining | ⬜ Not Started | FR-8.1 → FR-8.3, FR-9.1 → FR-9.4 | Phase 4 |
-| **6** | Visualization + Polish | ⬜ Not Started | FR-10.1 → FR-10.2, NFR-1 → NFR-5 | Phase 1 (can parallel) |
+| **7** | NHANES Native Retrain | ✅ Complete (v15 served) | FR-2.1 → FR-4.3 | Phase 3 |
+| **8** | Web Platform + Authentication | ✅ Code complete (8-02…8-05 plans uncommitted) | FR-9.1 → FR-9.6, FR-10.1 → FR-10.3 | Phase 3 |
+| **4** | CI/CD + Monitoring | ✅ Complete | FR-6.1, FR-7.1 → FR-7.2 | Phase 8 |
+| **5** | Drift Detection + Auto-Retraining | 🟡 ~80% (Airflow service + live DAG run pending) | FR-8.1 → FR-8.3, FR-9.1 → FR-9.4 | Phase 4 |
+| **6** | Visualization + Polish | 🟡 ~70% (viz + docs done; E2E/diagram/README pending) | FR-10.1 → FR-10.2, NFR-1 → NFR-5 | Phase 1 (can parallel) |
 
 ---
 
@@ -117,7 +117,7 @@
 
 ## Phase 8: Web Platform + Authentication (NEW)
 
-**Status**: 🔄 In Progress
+**Status**: ✅ Code complete (all 5 waves implemented; 8-02…8-05 plans still uncommitted; no browser E2E)
 **Delivers**: Multi-user React website with email/password auth, patient/doctor roles, authenticated predictions, prediction history
 **Patent impact**: Claim 4 (model version per prediction, now user-linked)
 **Depends on**: Phase 3 (FastAPI backend, MLflow registry, Docker Compose)
@@ -130,67 +130,67 @@
 
 #### Wave 2: User Profiles & Role-Based Access
 
-- [ ] **8-02-PLAN.md** — Patient and doctor profile models, profile creation endpoints, patient-doctor mapping, role-based dependencies (get_current_patient, get_current_doctor)
+- [x] **8-02-PLAN.md** — Patient and doctor profile models, profile creation endpoints, patient-doctor mapping, role-based dependencies (get_current_patient, get_current_doctor)
 
 #### Wave 3: Authenticated Predictions & History
 
-- [ ] **8-03-PLAN.md** — Protect /v2/predict and /v2/batch_predict with JWT, link predictions to user profiles, prediction history endpoints, patient dashboard data
+- [x] **8-03-PLAN.md** — Protect /v2/predict and /v2/batch_predict with JWT, link predictions to user profiles, prediction history endpoints, patient dashboard data
 
 #### Wave 4: React Frontend Website
 
-- [ ] **8-04-PLAN.md** — React + Vite + Tailwind frontend, login/register pages, patient dashboard, doctor dashboard, prediction form, history pages, protected routes
+- [x] **8-04-PLAN.md** — React + Vite + Tailwind frontend, login/register pages, patient dashboard, doctor dashboard, prediction form, history pages, protected routes
 
 #### Wave 5: Docker Compose + Local Deployment
 
-- [ ] **8-05-PLAN.md** — Frontend service in Docker Compose, CORS configuration, environment variables (SECRET_KEY, DATABASE_URL), local run verification
+- [x] **8-05-PLAN.md** — Frontend service in Docker Compose, CORS configuration, environment variables (SECRET_KEY, DATABASE_URL), local run verification
 
 ---
 
 ## Phase 4: CI/CD + Monitoring
 
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete (5/5; image build/push job deliberately omitted until it can be verified locally)
 **Delivers**: GitHub Actions workflow, Prometheus metrics, Grafana dashboard
 **Depends on**: Phase 8 (Docker image to build/push)
 
 ### Tasks
 
-- [ ] Create `.github/workflows/ci.yml` — test → build → push image
-- [ ] Create `src/monitoring/metrics.py` — Prometheus instrumentation (latency, request count, error rate)
-- [ ] Create Grafana dashboard JSON/provisioning
-- [ ] Add Prometheus + Grafana to Docker Compose
-- [ ] Write monitoring tests
+- [x] Create `.github/workflows/ci.yml` — test job only; image build/push deliberately omitted until it can be verified locally (a job nobody has run is not a gate)
+- [x] Create Prometheus instrumentation (latency, request count, error rate) — lives inline in `api/app.py` (`REQUEST_COUNT`, `REQUEST_DURATION`, `PREDICTIONS_TOTAL`, `PREDICTION_PROBABILITY`) and is served at `/metrics`; no separate module was needed
+- [x] Create Grafana dashboard JSON/provisioning — `docker/grafana/dashboards/corvus-api-dashboard.json` + `docker/grafana/provisioning/{dashboards,datasources}`
+- [x] Add Prometheus + Grafana to Docker Compose — `prometheus` and `grafana` services + `docker/prometheus.yml` + `docker/prometheus-rules/alerts.yml`
+- [x] Write monitoring tests — `tests/test_api.py::test_metrics_endpoint_exposes_prometheus_text` (commit `6fc2dc9`)
 
 ---
 
 ## Phase 5: Drift Detection + Auto-Retraining
 
-**Status**: ⬜ Not Started
+**Status**: 🟡 ~80% (Claim 5 code complete; Airflow is not a Compose service and the DAG has never run live)
 **Delivers**: Evidently AI drift reports, Airflow DAGs, champion/challenger promotion
 **Patent impact**: Claim 5 (5 trigger types + promotion + archived retention)
 **Depends on**: Phase 4 (monitoring infrastructure)
 
 ### Tasks
 
-- [ ] Create `src/monitoring/drift.py` — Evidently AI report (UCI-336 baseline vs. UCI-857 batch)
-- [ ] Create `airflow/dags/` — 5 trigger-type DAGs (**Claim 5**)
-- [ ] Implement conditional retrain → re-register → redeploy
-- [ ] Implement champion/challenger model comparison + promotion
-- [ ] Verify MLflow Registry Staging/Production/Archived stages for retention
+- [x] Create `src/monitoring/drift.py` — Evidently AI report (reference split vs. live `predictions_v2` rows)
+- [x] Create `airflow/dags/corvus_drift_retrain.py` — all 5 trigger types in one branching DAG (**Claim 5**)
+- [x] Implement conditional retrain → re-register → redeploy — `BranchPythonOperator` on `evaluate_triggers()`, retrain via the `train_nhanes.main` path
+- [x] Implement champion/challenger model comparison + promotion — `src/model_promotion.decide_promotion` writes a decision JSON + MLflow tags; pinning stays human
+- [x] Verify MLflow Registry Staging/Production/Archived stages for retention — `scripts/promote_production.py <version>` sets Production and archives the outgoing versions
 - [ ] Add Airflow to Docker Compose
-- [ ] Write drift detection and retraining tests
+- [x] Write drift detection and retraining tests
 
 ---
 
 ## Phase 6: Visualization + Polish
 
-**Status**: ⬜ Not Started
+**Status**: 🟡 ~70% (`src/visualization` + 9 tests + docs exist; E2E, architecture diagram, README rewrite pending)
 **Delivers**: Standalone visualization module, integration tests, documentation
 **Patent impact**: Component 102 (data visualization module)
 **Can run in parallel with**: Phase 2+ (only depends on Phase 1 data)
 
 ### Tasks
 
-- [ ] Create `src/visualization/` module (**Component 102**)
+- [x] Create `src/visualization/` module (**Component 102**) — `model_viz.py` (prediction distribution, ROC, confusion matrix, model dashboard) + `drift_viz.py` (drift, drift comparison, drift over time)
 - [ ] End-to-end integration testing
-- [ ] Documentation pass, architecture diagram, demo script
+- [ ] Documentation pass, architecture diagram, demo script (README phase checklist is two generations stale)
 - [ ] Final README update

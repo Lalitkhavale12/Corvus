@@ -1,16 +1,16 @@
 ---
 gsd_state_version: "1.0"
-status: unknown
-stopped_at: Phase 8 planning complete, ready to build Phase 8-01
-last_updated: "2026-10-23"
-state_head: 51dd12b
+status: active
+stopped_at: M1 code complete (P1/P2/P3/P4/P7/P8); P5 Airflow service + P6 polish remain
+last_updated: "2026-11-05"
+state_head: 6fc2dc9
 progress:
   total_phases: 8
-  completed_phases: 4
-  total_plans: 12
-  completed_plans: 10
-  percent: 50
-current_phase_name: Web Platform + Authentication
+  completed_phases: 6
+  total_plans: 15
+  completed_plans: 13
+  percent: 85
+current_phase_name: Drift Automation + Polish (final M1 gaps)
 ---
 # Project State — Corvus
 
@@ -18,10 +18,10 @@ current_phase_name: Web Platform + Authentication
 
 ## Current Position
 
-- **Milestone**: M1 (Initial Build)
-- **Active Phase**: Phase 8 — Web Platform + Authentication (Phase 8-01 planning ready)
-- **Next Phase**: Build Phase 8-01 (backend auth foundation)
-- **Blocked**: Nothing
+- **Milestone**: M1 (Initial Build) — ~85% (6 of 8 phases code-complete)
+- **Active Phase**: Phase 5 — Drift + Auto-Retraining (code complete, Airflow not yet a Compose service) and Phase 6 — Visualization + Polish
+- **Next Phase**: close M1 — Airflow service in Compose, E2E/integration pass, README + architecture diagram
+- **Blocked**: screening-vs-diagnostic copy sign-off; Alembic `0004` go/no-go; ~12 commits unpushed so CI has not actually run
 
 ## Phase Status
 
@@ -30,11 +30,27 @@ current_phase_name: Web Platform + Authentication
 | 1 — Data Pipeline | ✅ Complete | 2026-09-19 |
 | 2 — Model Training | ✅ Complete | 2026-09-21 |
 | 3 — API + Containers | ✅ Complete | 2026-09-23 |
-| 7 — NHANES Native Retrain | ✅ Complete | 2026-10-15 |
-| 8 — Web Platform + Authentication | 🔄 In Progress | 2026-10-23 |
-| 4 — CI/CD + Monitoring | ⬜ Not Started | — |
-| 5 — Drift + Retraining | ⬜ Not Started | — |
-| 6 — Visualization + Polish | ⬜ Not Started | — |
+| 7 — NHANES Native Retrain | ✅ Complete (v15 served) | 2026-11-05 |
+| 8 — Web Platform + Authentication | ✅ Code complete (8-01…8-05 built; 8-02…8-05 plans uncommitted; no browser E2E) | 2026-11-05 |
+| 4 — CI/CD + Monitoring | ✅ Complete (CI gate, `/metrics`, Prometheus + Grafana in Compose; image build/push deliberately omitted) | 2026-11-05 |
+| 5 — Drift + Retraining | 🟡 ~80% (5 triggers, drift, champion/challenger, DAG written; Airflow not a Compose service, DAG never run live) | 2026-11-05 |
+| 6 — Visualization + Polish | 🟡 ~70% (`src/visualization` + 9 tests, docs pass; E2E, architecture diagram, README still stale) | 2026-11-05 |
+
+## Current Work
+
+### Serving state (verified 2026-11-05, HEAD `6fc2dc9`)
+
+- ✅ Model **v15** is the served version (`config/config.yaml:71` `v2_pinned_version: "15"`); `/v2/predict` live prob had been 0.8724 at threshold 0.1026
+- ✅ v15 holdout: ROC-AUC **0.8214**, precision **0.3239**, recall **0.8378** — high-recall/low-precision, so the product is framed as a **screening aid, not a diagnosis**
+- ✅ Full suite at HEAD: **148 passed, 1 skipped** (`python -m pytest tests -q`, ~167 s)
+- ⚠️ Docker demo is stale: `docker/docker-compose.yml:51` pins `MODEL_VERSION_V2: "11"` and `docker/.mlruns.container` only holds versions 1–9. Re-sync via `docker/sync_mlruns_container.py` and pin 15 before any container demo
+- ⚠️ Origin is ~12 commits behind `main`; CI (`.github/workflows/ci.yml`) has not run remotely yet
+
+### Docs/polish pass (this session)
+
+- ✅ `STATE.md` + `ROADMAP.md` refreshed against the real tree (this file)
+- ✅ `docs/dataset_requirements.md` class-balance floor amended 20% → 10%
+- ✅ Website copy: stale "Model v11" removed, screening disclaimer added to shared shell
 
 ## Completed Work
 
@@ -78,17 +94,17 @@ current_phase_name: Web Platform + Authentication
 - ✅ Decisions: container-synced mlruns copy with /mlruns-rebased URIs (host pristine, v9 identity intact); mlflow --allowed-hosts mlflow:*; api mounts the copy at /mlruns
 - ✅ Requirements FR-5.1, FR-5.2, FR-4.1 delivered — Phase 3 COMPLETE
 
-## Phase 8: Web Platform + Authentication (In Progress)
+## Phase 8: Web Platform + Authentication (Code Complete)
 
-### Planned Sub-Phases
+### Sub-Phases
 
 | Plan | Name | Status |
 |---|---|---|
-| 8-01 | Backend Auth Foundation (SQLAlchemy, JWT, register/login) | 🔄 Ready to build |
-| 8-02 | User Profiles & Role-Based Access | ⬜ Not Started |
-| 8-03 | Authenticated Predictions & History | ⬜ Not Started |
-| 8-04 | React Frontend Website | ⬜ Not Started |
-| 8-05 | Docker Compose + Local Deployment | ⬜ Not Started |
+| 8-01 | Backend Auth Foundation (SQLAlchemy, JWT, register/login) | ✅ Built (`/auth/register`, `/auth/login`, `/auth/me`, `src/auth/`) |
+| 8-02 | User Profiles & Role-Based Access | ✅ Built (`/auth/profile`, `/doctors/patients`, `test_profiles.py`) |
+| 8-03 | Authenticated Predictions & History | ✅ Built (`require_user` on `/predict` + `/v2/predict`, `/auth/predictions`) |
+| 8-04 | React Frontend Website | ✅ Built (10 pages under `website/src/pages/`) |
+| 8-05 | Docker Compose + Local Deployment | ✅ Built (`frontend` service + `Dockerfile.frontend`) |
 
 ## Decisions Log
 
@@ -116,13 +132,21 @@ current_phase_name: Web Platform + Authentication
 
 1. Claims 1 and 3 — full text not yet shared, cannot assess compliance
 2. Abu Dhabi EHR file — defer to stretch goal or integrate into core?
+3. Screening vs diagnostic — product copy now assumes **screening** (precision 0.32 makes "diagnosis" indefensible); needs an explicit yes/no from the user
+4. Alembic `0004` for `predictions`/`predictions_v2` — skipped on purpose (`api/db.py` `create_all` already owns those tables; `alembic/env.py` targets the auth `Base` only). Confirm keep-as-is or add the migration
+5. Deltas below 0.02 ROC are noise — do not read a version bump as an improvement without the paired CI
 
 ## Context for Next Session
 
-Start with Phase 8-01: Backend Auth Foundation. Create SQLAlchemy models, Alembic migrations, JWT auth, register/login endpoints, and protected route dependencies. Then build React frontend.
+Close M1's remaining gaps, in this order:
+1. Push `main` (~12 commits) so CI actually runs.
+2. Re-sync `docker/.mlruns.container` (holds versions 1–9 only) and bump `MODEL_VERSION_V2` to 15.
+3. Phase 5: add the Airflow service to Compose and run `corvus_drift_retrain` once end-to-end.
+4. Phase 6: integration/E2E pass, architecture diagram, README rewrite (its phase checklist is two generations stale).
+5. Commit the uncommitted `.planning/phases/08-*` plans and `07-PATTERNS.md` / `07-REVIEW.md`.
 
 ## Session
 
-**Last session:** 2026-10-23
-**Stopped at:** Phase 8 planning complete; PROJECT.md, ROADMAP.md, STATE.md updated
-**Resume file:** .planning/phases/08-web-platform-auth/
+**Last session:** 2026-11-05
+**Stopped at:** M1 code complete; docs/polish pass landed (STATE, ROADMAP, dataset doctrine, website copy)
+**Resume file:** .planning/ROADMAP.md
