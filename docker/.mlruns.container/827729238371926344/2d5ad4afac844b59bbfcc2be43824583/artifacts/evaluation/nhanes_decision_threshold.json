@@ -1,0 +1,8 @@
+{
+  "threshold": 0.14,
+  "target_recall": 0.8,
+  "selected_on": "dev_out_of_fold",
+  "config": "random-forest",
+  "holdout_precision": 0.31901840490797545,
+  "holdout_recall": 0.8432432432432433
+}

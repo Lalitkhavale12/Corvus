@@ -1,0 +1,16 @@
+creation_timestamp: 1793595830299
+current_stage: None
+deployment_job_state: null
+description: null
+last_updated_timestamp: 1793595830299
+model_id: m-d3af451aa4d34c5ea0c6997a80075d67
+name: corvus-ckd
+run_id: ba51e2fd12084d8b8c32445e1b4fb0f2
+run_link: null
+source: models:/m-d3af451aa4d34c5ea0c6997a80075d67
+status: READY
+status_message: null
+storage_location: /mlruns/827729238371926344/models/m-d3af451aa4d34c5ea0c6997a80075d67/artifacts
+user_id: null
+version: 13
+workspace: default

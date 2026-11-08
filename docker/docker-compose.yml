@@ -48,7 +48,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://corvus:corvus@db:5432/corvus
       MLFLOW_TRACKING_URI: http://mlflow:5000
-      MODEL_VERSION_V2: "11"
+      MODEL_VERSION_V2: "15"
     volumes:
       # Container-readable registry copy (see OQ2 note): the loader resolves
       # models:/ + runs:/ artifact URIs to /mlruns paths inside this box.
@@ -78,6 +78,25 @@ services:
       db:
         condition: service_healthy
 
+  # Phase 4 monitoring — the three scrape targets prometheus.yml already
+  # names. Without them Prometheus reports 4 of 6 targets down and alerts.yml
+  # has nowhere to fire, so the dashboard looks broken in a demo.
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    environment:
+      DATA_SOURCE_NAME: postgresql://corvus:corvus@db:5432/corvus?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    ports:
+      - "9093:9093"
+
   # Phase 5 — retraining orchestrator. Reuses the api image (requirements.txt
   # already pins apache-airflow + evidently), so only the DAG and the data it
   # reads are mounted. `standalone` = scheduler + webserver + sqlite metadata
@@ -88,7 +107,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    command: standalone
+    command: ["airflow", "standalone"]
     ports:
       - "8080:8080"
     env_file:
@@ -158,7 +177,7 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: corvus-grafana
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       prometheus:
         condition: service_started

@@ -3,7 +3,10 @@
 # pandas 3 removed, and the DAG is written against the Airflow 2 API.
 pandas>=2.0,<3.0
 numpy>=1.24
-scikit-learn>=1.3
+# Upper bound is load-bearing: registered models are cloudpickled pipelines, so
+# unpickling in a different sklearn major churns module paths (v15 was saved by
+# 1.8.0 and fails to load under 1.9 with "No module named '_loss'").
+scikit-learn>=1.3,<1.9
 joblib>=1.3
 pyyaml>=6.0
 loguru>=0.7

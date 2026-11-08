@@ -1,0 +1,14 @@
+artifact_uri: /mlruns/827729238371926344/7889e8d998c44cfbbd94d77d5254df12/artifacts
+end_time: 1793542952272
+entry_point_name: ''
+experiment_id: '827729238371926344'
+lifecycle_stage: active
+run_id: 7889e8d998c44cfbbd94d77d5254df12
+run_name: native-gradient-boosting
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1793542907786
+status: 3
+tags: []
+user_id: Lalit

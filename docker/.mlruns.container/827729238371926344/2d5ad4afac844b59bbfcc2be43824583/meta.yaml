@@ -1,0 +1,14 @@
+artifact_uri: /mlruns/827729238371926344/2d5ad4afac844b59bbfcc2be43824583/artifacts
+end_time: 1793597033828
+entry_point_name: ''
+experiment_id: '827729238371926344'
+lifecycle_stage: active
+run_id: 2d5ad4afac844b59bbfcc2be43824583
+run_name: native-random-forest
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1793597006289
+status: 3
+tags: []
+user_id: Lalit

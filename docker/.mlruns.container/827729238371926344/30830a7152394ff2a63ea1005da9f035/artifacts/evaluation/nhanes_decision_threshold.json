@@ -1,0 +1,8 @@
+{
+  "threshold": 0.10256178929054474,
+  "target_recall": 0.8,
+  "selected_on": "dev_out_of_fold",
+  "config": "gradient-boosting",
+  "holdout_precision": 0.3238612620142081,
+  "holdout_recall": 0.8378378378378378
+}
