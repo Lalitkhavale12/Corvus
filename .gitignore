@@ -12,6 +12,8 @@ data/processed/*
 !data/processed/.gitkeep
 data/nhanes/*.xpt
 data/nhanes/*.csv
+# Third-party dataset received for cross-checking only (not ours to publish)
+data/Prof Data/
 mlruns/
 models/*
 !models/.gitkeep
@@ -33,6 +35,9 @@ reports/*
 
 # Node / tool state (never part of the Python project)
 node_modules/
+website/playwright-report/
+website/test-results/
+website/e2e/.auth/
 .pytest_cache/
 .ruff_cache/
 *.log

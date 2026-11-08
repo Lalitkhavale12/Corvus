@@ -59,6 +59,33 @@
   written and reviewed before a single metric is read — the 2026-10-10
   harmonization artifact (v9 scoring 0.36 on garbage-mapped inputs) is why.
 
+## Independent cross-check (2026-11-08)
+
+An externally supplied NHANES derivation (`nhanes_kidney/`, kept outside the
+repo) was scored against these blocks. NHANES 2007–2018, 6 cycles, 32,361
+adults x 46 features, 16.9% positive, same label rule (CKD-EPI 2021 race-free
+eGFR < 60 OR ACR >= 30).
+
+- **Implementation agreement.** 9,901 shared SEQN (our dev cycles, SDDSRVYR 9
+  and 10 = 2015–16 and 2017–18); 9,900/9,901 labels agree (99.99%).
+- **The one disagreement** is `SEQN 98699`: our label was computed from the
+  unrounded ACR 29.996 (negative), their file rounds to 30.0 (positive).
+  eGFR max abs diff 0.05, ACR max abs diff 0.01 — agreement to rounding, not
+  a rule difference. This is independent evidence that our label derivation
+  does what it claims, which is the exact axis the six rejections failed.
+- **New rows.** 21,989 rows from 2007–2014, prevalence 16.68% vs 17.37% in
+  2015–18 — stable. Covariate shift is modest (age median 47→49, age 65+
+  21.9%→23.4%, BUN median 12→14 mg/dL).
+- **Feature gap.** Biochemistry only: no blood pressure, BMI, HbA1c or
+  diabetes history, so it cannot fill the portable-23 contract.
+- **Verdict: not a swap and not external validation.** Same source, same
+  population and same label method as our training set, so it fails Block 6;
+  it is US data, so it says nothing about Indian patients. Accepted uses:
+  (a) the implementation check above, recorded for the report; (b) optional
+  reproduction of its 2007–14 → 2015–18 benchmark; (c) optional harvest of
+  2007–2014, which would need 16 extra XPTs (`BPX_E–H`, `BMX_E–H`,
+  `DIQ_E–H`, `GHB_E–H`) and would grow dev from 9,901 to roughly 19k rows.
+
 ## Rejection log (evidence, not opinion)
 
 | Candidate | Size | Failing block | Forensic finding |
@@ -72,10 +99,18 @@
 
 ## Current status
 
-- Training set: UCI-336 (400 rows) — passes all blocks at small scale.
+- Training set: NHANES 2015–16 + 2017–18 (`data/nhanes/nhanes_ckd_multi.csv`,
+  9,901 dev rows after the adult/exclusion rules). UCI-336 (400 rows) is no
+  longer the training set — it survives only as the eval-only harmonization
+  adapter, which the suite asserts stays out of the serving path.
 - **Big cohort: NHANES 2021–2023 derivation SELECTED 2026-10-10** —
   `data/nhanes/nhanes_ckd_derived.csv` (5,343 adults, 17.3% positive):
   KDIGO labels from CKD-EPI 2021 eGFR + ACR; quarantine held (10 banned
   columns); audit gates passed (circularity 86% < 99%, prevalence in band,
   0 dups). Protocol: `data/nhanes/NHANES_PROTOCOL.md`.
 - Validation set: OPEN HUNT (UCI-857 disqualified 2026-10-10).
+- Label rule cross-checked against an independent implementation on
+  2026-11-08: 9,900/9,901 agreement (see the section above).
+- Indian cohort: OPEN — no data in hand. This is the only remaining gap that
+  changes what the model means for its intended users; everything else left
+  is engineering.
