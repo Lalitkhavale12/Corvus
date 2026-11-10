@@ -23,7 +23,13 @@ export function Dashboard() {
       setResult(entry);
       setRecent(addPrediction(entry));
     } catch (err) {
-      setError(err.response?.data?.detail || "Prediction failed. Check the API is reachable at http://localhost:8000.");
+      // FastAPI validation errors arrive as an array, which React cannot render.
+      const detail = err.response?.data?.detail;
+      setError(
+        typeof detail === "string"
+          ? detail
+          : "Prediction failed. Check the API is reachable at http://localhost:8000."
+      );
     }
   };
 

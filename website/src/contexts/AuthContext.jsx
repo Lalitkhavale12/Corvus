@@ -14,10 +14,11 @@ export function AuthProvider({ children }) {
         .me()
         .then((res) => {
           setUser(res.data);
-          return authAPI.getProfile();
-        })
-        .then((res) => {
-          setUser((prev) => ({ ...prev, profile: res.data }));
+          // A 404 here just means no profile row yet; it must not log the user out.
+          return authAPI.getProfile().then(
+            (profile) => setUser((prev) => ({ ...prev, profile: profile.data })),
+            () => {}
+          );
         })
         .catch(() => {
           localStorage.removeItem("token");

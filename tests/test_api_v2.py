@@ -168,6 +168,16 @@ def test_v2_predict_null_numeric_uses_imputer(dual_serving_stub, native_request,
     assert resp.status_code == 200
 
 
+def test_v2_predict_null_categorical_uses_imputer(dual_serving_stub, native_request, auth_client):
+    # The UI sends "Not recorded" as null; coded categoricals must reach the
+    # imputer too instead of failing as a bad literal.
+    native_request["RIAGENDR"] = None
+    native_request["DMDEDUC2"] = None
+    native_request["DIQ010"] = None
+    resp = auth_client.post("/v2/predict", json=native_request)
+    assert resp.status_code == 200
+
+
 def test_v2_unconfigured_predict_503(unconfigured_v2_stub, native_request, auth_client):
     # With auth, user is authenticated; no v2 pin → 503 from _require_v2.
     resp = auth_client.post("/v2/predict", json=native_request)

@@ -63,7 +63,9 @@ class CKDRequestNative(BaseModel):
     categoricals are NHANES-coded ``Literal`` vocabularies verified
     against the locked derived CSV (observed codes: RIAGENDR {1,2},
     DMDEDUC2 {1..5,9}, DIQ010 {1,2,3}),
-    so bad values fail fast with an automatic 422 before inference.
+    so out-of-vocabulary codes fail fast with an automatic 422 before
+    inference. ``None`` means "not recorded": those rows are imputed like
+    the numerics rather than rejected.
     No ``ge``/``le`` range bounds per the established raw-extremes
     rationale.
 
@@ -92,9 +94,9 @@ class CKDRequestNative(BaseModel):
     LBDSUASI: float | None
     LBXSAL: float | None
     LBXSGTSI: float | None
-    RIAGENDR: Literal[1, 2]
-    DMDEDUC2: Literal[1, 2, 3, 4, 5, 9]
-    DIQ010: Literal[1, 2, 3]
+    RIAGENDR: Literal[1, 2] | None = None
+    DMDEDUC2: Literal[1, 2, 3, 4, 5, 9] | None = None
+    DIQ010: Literal[1, 2, 3] | None = None
 
 
 class NativeBatchItem(CKDRequestNative):

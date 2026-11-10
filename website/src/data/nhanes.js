@@ -74,6 +74,9 @@ export const NHANES_GROUPS = [
       { key: "LBXSKSI", label: "Potassium", unit: "mmol/L" },
       { key: "LBDSCASI", label: "Calcium", unit: "mmol/L" },
       { key: "LBDSPHSI", label: "Phosphorus", unit: "mmol/L" },
+      { key: "LBXSAL", label: "Albumin", unit: "g/dL" },
+      { key: "LBDSUASI", label: "Uric acid", unit: "mg/dL" },
+      { key: "LBXSGTSI", label: "SGPT (ALT)", unit: "U/L" },
     ],
   },
   {
@@ -84,6 +87,7 @@ export const NHANES_GROUPS = [
       { key: "LBXWBCSI", label: "WBC", unit: "10³/µL" },
       { key: "LBXRBCSI", label: "RBC", unit: "10⁶/µL" },
       { key: "LBXGH", label: "Glycohemoglobin", unit: "%" },
+      { key: "LBXRDW", label: "RDW", unit: "%" },
     ],
   },
 ];
@@ -101,7 +105,10 @@ export function toNhanesPayload(values) {
     if (raw === "") {
       payload[field.key] = null;
     } else if (field.options) {
-      payload[field.key] = raw;
+      // Coded categoricals are validated as integers (Literal[1, 2]) by the API,
+      // so "1" must go over the wire as 1.
+      const code = Number(raw);
+      payload[field.key] = Number.isFinite(code) ? code : raw;
     } else {
       const num = Number(raw);
       payload[field.key] = Number.isFinite(num) ? num : null;
