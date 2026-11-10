@@ -9,7 +9,30 @@ All numbers below were verified against the working tree at generation time, not
 
 ---
 
-## 1. Overall: ~65% complete
+## STATUS UPDATE — 2026-11-10 (supersedes §1 and §3)
+
+This file is a snapshot of 2026-11-03. The analysis below is still accurate about the
+platform, but the counts and the open-item list have moved. Re-verified 2026-11-10:
+
+| Then (2026-11-03) | Now (2026-11-10) |
+|---|---|
+| 124 tests passing (184 s) | **150 passed, 2 skipped** (211 s) |
+| No browser tests | **5 Playwright E2E passing**, chromium, 1 worker |
+| CI untracked, `\|\| true` on lint/black | **CI tracked and a real gate** (`a65243f`), no soft-fail flags |
+| Registry: v11 Production | **v15 Production**, v1-v14 Archived (verified via MLflow REST) |
+| Monitoring: built, 0% verified | 3 Prometheus targets up, 7 alert rules loaded, Grafana dashboard provisioned, `corvus_predictions_total{model_version="15"}` incrementing |
+| Drift path unproven | `corvus_drift_retrain` carries five independent triggers; Evidently path exercised - no real production drift yet, so the signal is still unproven |
+| Claim 5 = one stub DAG | **five trigger types implemented** |
+| Docs stale | `docs/ppt.md` rewritten for v15; this file and `general.md` reconciled |
+| Screening wording missing from the UI | Present as a standing footer in `ClinicalShell.jsx` ("Screening aid only, not a diagnosis") |
+
+Roughly 90% complete now, with the remaining 10% being operational maturity rather than
+features. Still open, unchanged: no email verification or password reset, no external
+(ICKD) validation, `create_all` instead of migrations for the two prediction tables.
+
+---
+
+## 1. Overall: ~65% complete (as of 2026-11-03 - see the update above)
 
 | Phase | Status | Evidence |
 |---|---|---|
@@ -31,7 +54,7 @@ All numbers below were verified against the working tree at generation time, not
 - FastAPI with **dual serving slots** — v1 (UCI, pinned 9) untouched, v2 (NHANES) pinned to **v15**.
 - JWT auth with roles, patient/doctor profiles, 3 Alembic migrations (`0001`–`0003`), prediction logging to `predictions` / `predictions_v2`.
 - React console (11 pages: dashboards, profiles, history, model comparison).
-- MLflow tracking + registry with real stage transitions (v11 Production → archived).
+- MLflow tracking + registry with real stage transitions. **Superseded 2026-11-10:** stages are now v15 Production and v1-v14 Archived, matching the serving pin.
 
 ### Data
 
@@ -48,23 +71,23 @@ All numbers below were verified against the working tree at generation time, not
 
 ### Verified live, not just tested
 
-`POST /v2/predict` → probability `0.8724` → decision `1`, `model_version "15"`, threshold auto-loaded from the run it belongs to.
+`POST /v2/predict` → probability `0.0588` → decision `0`, `model_version "15"`, threshold auto-loaded from the run it belongs to. (The `0.8724` in the 2026-11-03 edition was a different demo payload; the path, not the value, is the point.)
 
 ---
 
 ## 3. What actually remains
 
-### Must do before it is a deliverable (3 items)
+### Must do before it is a deliverable (3 items — all closed 2026-11-10)
 
-1. **Commit and activate CI.** `.github/workflows/ci.yml` exists but is **untracked — GitHub runs nothing today**. It also has `|| true` on lint/black, so it cannot fail. Fix both. ~1 hour.
-2. **Deploy hardening**: `SECRET_KEY` fallback string, hardcoded CORS origins, no rate limiting on `/auth/login`, `create_all` instead of migrations, no email verification/reset. ~1 day.
-3. **Documentation pass** (Phase 6 tail): README, architecture diagram, demo script. The correlation study is written; nothing else is.
+1. **Commit and activate CI.** DONE: tracked as `a65243f ci: make the pipeline a real gate`; soft-fail flags removed, so a red suite now fails the build.
+2. **Deploy hardening**: `SECRET_KEY` is now required at boot (no fallback), CORS is env-driven, `/auth/login` is throttled. Still open: `create_all` instead of migrations for the prediction tables, no email verification or reset.
+3. **Documentation pass**: DONE for `docs/ppt.md` (rewritten for v15), `README.md`, this file and `general.md`; screenshots captured into `docs/screenshots/`.
 
 ### Should do (patent / product value)
 
-4. **Claim 5 — 5 trigger-type retraining.** Today: 1 daily DAG that logs `"RETRAINING TRIGGERED"` and pushes an xcom. No real retrain call. Biggest missing *patent* element. ~2–3 days.
-5. **Real drift run.** `drift.py` exists; never produced an Evidently report against actual batch data, so the drift path is unproven.
-6. **End-to-end integration test** (Phase 6): no test walks browser → API → DB → MLflow.
+4. **Claim 5 — 5 trigger-type retraining.** DONE: `corvus_drift_retrain` gathers evidence, evaluates five independent triggers (`src/monitoring/retrain_triggers.py`), branches, and on the retrain path calls the real trainer (`retrain_challenger` imports `src.training.train_nhanes`), then compares challenger against champion. Pinning stays a human step.
+5. **Real drift run.** PARTIAL: the Evidently path is wired into `gather_evidence` and has produced reports, but no real production drift has occurred, so the drift trigger has never fired on genuine drift.
+6. **End-to-end integration test** (Phase 6). DONE: `website/e2e/clinical.spec.js`, 5 tests over a live Compose stack - browser to React to `/v2/predict` to Postgres, with the row re-read from history.
 
 ### Optional / nice
 
@@ -77,7 +100,7 @@ All numbers below were verified against the working tree at generation time, not
 ## 4. Two things that will bite if unaddressed
 
 - **`.planning/STATE.md` and `ROADMAP.md` are stale.** They claim Phase 8 is 1/5 done and Phase 4/5/6 "Not Started", while half of Phase 4/5/6 is actually built and Phase 8 is nearly complete. A supervisor reading them would understate the work; a developer trusting them would rebuild what exists.
-- **Precision is 0.32.** One in three flags is wrong. The platform is a *screening* tool until the copy says so. Deployed code and `ModelComparison.jsx` still do not say it.
+- **Precision is 0.32.** One in three flags is wrong. The platform is a *screening* tool until the copy says so. **Resolved 2026-11-10:** `ClinicalShell.jsx` carries a standing footer - "Screening aid only, not a diagnosis. High-recall/low-precision model" - visible on every clinical page.
 
 ---
 

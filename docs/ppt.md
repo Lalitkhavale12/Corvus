@@ -1,538 +1,729 @@
-# CORVUS — Technical Project Dossier (for PPT generation)
+# CORVUS - Technical Project Dossier (for PPT generation)
 
-> Source material for a 12–14 slide engineering evaluation presentation.
-> Fact-checked against code, data, configs, tests, and the live MLflow store on 2026-09-23.
-> Statuses: COMPLETED / IMPLEMENTED-UAT-PENDING / PARTIALLY-IMPLEMENTED / PLANNED / NOT-STARTED / FUTURE-STRETCH.
-> Anything unverifiable is marked NOT AVAILABLE IN CONTEXT — never invented.
+Status: current as of 2026-11-10, branch `main`, served model `corvus-ckd` **version 15**.
+Every number below was read from the running stack, the MLflow store, or the repository -
+not recalled. Where something is planned rather than built, it says so.
+
+Rule for the deck: the honest headline is **holdout ROC-AUC 0.8214, PR-AUC 0.5895,
+precision 0.324 at recall 0.838**. Corvus is a **screening** aid. Never present it as a
+diagnostic device, and never show a 1.000 metric - that number belonged to the retired
+336-row UCI proof of concept and is not the model being served.
 
 ---
 
-## SECTION 1 — PROJECT IDENTITY
+## SECTION 1 - PROJECT IDENTITY
 
-- **Project name:** Corvus
-- **Full title:** Corvus — end-to-end MLOps platform for automated training, deployment, and monitoring of disease prediction models, Chronic Kidney Disease (CKD) as pilot use case.
-- **Short description:** Config-driven ML lifecycle (ingest → validate → preprocess → train → track → register → serve → log) built around the UCI CKD dataset.
-- **Elevator pitch:** Most student ML stops at a notebook; Corvus carries a disease-prediction model from raw clinical CSV to a versioned, containerized prediction service with full experiment traceability.
-- **Problem:** Deployed ML models degrade as data drifts, yet academic projects stop at training and ignore monitoring, versioning, and retraining.
-- **Main objective:** Demonstrate the complete ML lifecycle with reproducible, testable artifacts at every stage.
-- **Research/engineering question:** NOT AVAILABLE IN CONTEXT (no formal RQ documented; engineering question in practice: how to run a small-data clinical classifier through a production-grade MLOps loop).
-- **Target users / intended use:** Academic evaluation (TY EDI engineering project); intended as a demonstrable platform, not a clinical tool.
-- **Project category:** Academic MLOps engineering project.
-- **Main technologies:** Python 3.11, pandas, scikit-learn, XGBoost, LightGBM, MLflow (tracking + Registry), FastAPI, Pydantic v2, SQLAlchemy, PostgreSQL 16, Streamlit, Docker + Docker Compose, Great Expectations 1.x, Loguru, pytest.
-- **Why more than a notebook:** Leak-safe split-before-fit pipeline as a serialized artifact; validation gates that fail closed; 9 tracked experiments with co-logged pipeline+model; versioned registry with human promotion gates; served API with per-prediction version logging; containerized stack; 45-test suite; row-level data lineage.
-- **Core engineering value:** Every claim is executable and verified — nothing is asserted without a test, a run, or a log.
+| Field | Value |
+|---|---|
+| Name | Corvus |
+| Domain | Chronic Kidney Disease (CKD) risk screening from routine blood and urine panels |
+| Core idea | A patient or clinician enters a standard lab/clinical panel; Corvus returns a calibrated CKD risk, the decision cut-off it used, and the exact model version that produced it |
+| Model served | `corvus-ckd` v15 - sklearn `GradientBoostingClassifier` inside a `ColumnTransformer` pipeline, 36 input features |
+| Stack | Python 3.11, scikit-learn, pandas, MLflow 3, FastAPI, Pydantic v2, PostgreSQL 16, React 19 + Vite, nginx, Docker Compose, Prometheus + Grafana + Alertmanager, Airflow 3 |
+| Public entry points | `http://localhost:3000` (React console), `http://localhost:8000/docs` (API), `http://localhost:5000` (MLflow) |
+| Source of truth | `config/config.yaml`, MLflow run `30830a71...`, `docs/ppt.md` (this file) |
 
 ### Explain CORVUS in 30 seconds
-Corvus takes 400 rows of real kidney-disease data through validation, leak-safe preprocessing, nine tracked ML experiments, and a model registry — then serves the winner as a versioned web API in Docker, logging every prediction. MLOps, end to end, on a real clinical dataset.
+Corvus takes the blood and urine numbers a lab already produces, derives a reproducible
+CKD label from them, trains a gradient-boosted model on three NHANES cycles, and serves it
+through a versioned API and a React console. Every prediction records which model version
+answered. On the one cycle it never saw it scores ROC-AUC 0.82, flagging 84% of true cases -
+as a screening tool, with the precision cost stated openly.
 
 ### Explain CORVUS in 1 minute
-Machine-learning models rot as data drifts, but coursework usually stops at training. Corvus implements the full lifecycle for Chronic Kidney Disease prediction: Great-Expectations-validated ingestion, a split-before-fit sklearn pipeline saved as one artifact, nine MLflow-tracked model configs with the pipeline co-logged beside each model, strict ROC-AUC selection into a Staging→Production registry, a FastAPI service that stamps every answer with its model version into PostgreSQL, all composed in Docker with a Streamlit UI — covered by 45 passing tests.
+Chronic kidney disease is silent until late; a serum creatinine and a urine albumin ratio
+are cheap and already ordered. Corvus turns that routine panel into a risk score. Labels
+come from KDIGO criteria (CKD-EPI 2021 race-free eGFR < 60 or urine ACR >= 30), computed
+deterministically - no clinician chart lookups, nothing circular. The cohort is three
+NHANES cycles, 15,244 adults, 2,696 positives. Validation is a forward split: the newest
+cycle is held out whole, so no row from the evaluation cohort was ever fitted on. The
+served model is a depth-3 gradient boosting classifier on a 23-field portable contract
+(20 labs plus three demographics), encoded to 36 pipeline features. The API pins the
+version at startup, and the registry, the response, and the database row all carry it.
 
 ### Explain CORVUS technically to an examiner
-Single Python package (`src/`), config-driven from `config/config.yaml`. Phase 1: quirk-normalizing ingestion, GX gate (fail-closed), stratified 279/40/81 split before any fitting, one fitted `ColumnTransformer` Pipeline (median/mode imputation, StandardScaler, OneHotEncoder with `handle_unknown="ignore"`), 24 output features, joblib artifact plus raw/transformed CSVs with lineage columns. Phase 2: nine seeded configs (six classical + three single-layer MLPs) trained from raw splits through train-only pipeline re-fits, five test metrics each in MLflow experiment `corvus-ckd`, strict-max ROC-AUC winner (`mlp-relu`) versioned v1–v9 with Staging/Archived lifecycle. Phase 3: FastAPI (startup-pinned v9 since promoted to Production), Pydantic-strict 24-field schemas, all-or-nothing CSV batches, full-record Postgres logging, health-gated Compose (API + MLflow + Postgres 16), thin Streamlit frontend. Verification: 45/45 pytest, 14/14 + 6/6 + 14/14 plan must-haves, code review with zero criticals, MLflow UI + container smoke proven live.
+`src/training/train_nhanes.py` reads `data/nhanes/nhanes_ckd_multi.csv` (15,244 x 28),
+drops eleven label-source columns that would leak the target, builds the portable-23
+contract, holds out SDDSRVYR cycle 12 entirely, tunes a decision threshold on 5-fold
+out-of-fold dev probabilities to hit 80% recall, and logs params, metrics, the fitted
+sklearn Pipeline and the estimator into the `corvus-ckd-nhanes` experiment. Selection is
+PR-AUC first, since the positive class is 17.7% and accuracy is a trap. The winner is
+registered as a version of `corvus-ckd`; FastAPI (`api/model_loader.py`) loads that
+version at startup, asserts the pipeline width equals the estimator's `n_features_in_`
+(36), and serves `/v2/predict`, writing each answer to `predictions_v2`.
 
 ---
 
-## SECTION 2 — PROJECT MOTIVATION
+## SECTION 2 - PROJECT MOTIVATION
 
-- **Why CKD:** Real, small, messy clinical data (400 rows, heavy missingness, mixed types) — forces honest handling of missingness, leakage, and small-n evaluation instead of toy-clean accuracy.
-- **Notebook-only limits:** No validation (bad drops silently pass), leakage-prone preprocessing (fit-before-split), untracked hyperparameters, unversioned models, no serving story, no prediction audit trail.
-- **Corvus answers:** GX validation gates; split-before-fit single Pipeline artifact; MLflow params/metrics/artifacts per run; Registry versions + stages + human promotion; FastAPI with per-prediction `model_version`; Postgres prediction log as future drift fuel.
-- **MLOps relevance:** Demonstrates the operational half academia skips: reproducibility (seeds + config + artifacts), traceability (lineage columns, run-linked registry versions), deployment (containers), and the monitoring/retraining on-ramp (logged predictions feed Phases 4–5).
+- **Clinical gap.** CKD is staged from eGFR and albuminuria, both of which sit in routine
+  panels. Risk is therefore computable before symptoms, but nobody scores it consistently.
+- **Technical gap.** Public CKD demos train on 300-400 row curated CSVs, report perfect
+  metrics, and collapse on real cohorts. Corvus is built to survive a real cohort and to
+  report the number it actually gets.
+- **Engineering gap.** Most student ML projects stop at a notebook. Corvus ships the whole
+  path: reproducible data build, tracked experiments, registry versions, a versioned API,
+  a UI, containers, metrics, alert rules, and an E2E suite.
 
-## PROBLEM → GAP → CORVUS SOLUTION
-- **PROBLEM:** Clinical ML degrades as data drifts; models need monitoring and retraining, not just training.
-- **GAP:** Coursework stops at `model.fit()` — no validation, versioning, serving, logging, or lifecycle.
-- **SOLUTION:** Corvus — a six-phase MLOps platform (3 of 6 phases built) carrying CKD prediction from raw CSV to a versioned containerized service, every step tested and tracked. Do NOT claim clinical impact: no clinical validation exists (see Section 26).
+## PROBLEM -> GAP -> CORVUS SOLUTION
 
----
-
-## SECTION 3 — COMPLETE PROJECT SCOPE
-
-### A. COMPLETED
-| Feature | What it does | Why it exists | Technology | Status | Evidence |
-|---|---|---|---|---|---|
-| Quirk-tolerant ingestion | Loads UCI CSV, normalizes `?`/whitespace/dtypes, writes quality summary | Real clinical files are dirty | pandas, `src/ingestion/load_data.py` | COMPLETED | `reports/data_quality_summary.csv`, 4 ingestion tests |
-| GX validation gate | 9-expectation suite + row bounds + duplicate check, fail-closed | Stop bad drops before they poison training | Great Expectations 1.x, `src/validation/validate.py` | COMPLETED | `data/validation/ckd_suite.json`, 6 validation tests, `RAW VALIDATION PASSED` |
-| Leak-safe split + Pipeline | 279/40/81 stratified split first; one fitted Pipeline artifact | Close train-test leakage; Claim 2 object | sklearn `train_test_split`, `Pipeline`, `ColumnTransformer` | COMPLETED | `preprocessing_pipeline.joblib`, disjointness + imputer-median tests |
-| 9-config training | 6 classical + 3 MLP configs, seeded, from raw splits | Fair comparison; pick winner on evidence | sklearn/XGBoost/LightGBM/MLP | COMPLETED | 9 MLflow runs, `src/training/` |
-| MLflow tracking + Registry | Params/metrics/artifacts per run; v1–v9; Staging→Production→Archived | Reproducibility + Claim 2 + lifecycle | MLflow 3.16.1 file store | COMPLETED | Live store: 9 runs, v9 Production |
-| Versioned API | 4 endpoints, pinned v9, `model_version` per response, strict 422s | Serve the model; Claim 4 | FastAPI, Pydantic v2 | COMPLETED | `api/`, 19 API tests, live 200s |
-| Postgres prediction log | Full record per prediction incl. version + timestamp | Audit trail; drift fuel | SQLAlchemy, Postgres 16 | COMPLETED | `predictions` table row observed live |
-| Container stack | Health-gated Compose: API + MLflow + Postgres | One-command deployment | Docker 29.x, Compose v5.3.1 | COMPLETED | Live smoke: build→up→predict→row→down clean |
-| Streamlit UI | Form + CSV upload over the API | Human-usable demo surface | Streamlit | COMPLETED (code) | `frontend/app.py` |
-| Test suite | 45 tests, synthetic fixtures, tmp isolation | Prove every claim | pytest 8.x | COMPLETED | 45/45 green |
-
-### B. IMPLEMENTED / UAT PENDING
-| Feature | Status | Evidence |
+| Problem | Gap in existing tools | What Corvus does |
 |---|---|---|
-| Streamlit browser check (form + CSV + 422s) | IMPLEMENTED / UAT PENDING | `03-UAT.md` test 2 pending; code complete |
-| Phase 2 MLflow-UI eyeball check (9 runs + artifacts) | IMPLEMENTED / UAT PENDING | `02-UAT.md` test 1 unconfirmed; store verified programmatically instead |
+| CKD is under-detected | Risk is never computed from data already on hand | Deterministic KDIGO label + 23-field risk model |
+| Published demos are unrepresentative | Tiny curated cohorts, 1.000 metrics | 15,244-row real cohort, forward split, honest 0.82 |
+| Predictions are unattributable | "The model" with no version | `model_version` on every response and every DB row |
+| Models silently rot | Nothing watches drift or volume | Exporters, 7 alert rules, 5 retrain triggers in Airflow |
+
+---
+
+## SECTION 3 - COMPLETE PROJECT SCOPE
+
+### A. COMPLETED (built, and verified against the running stack)
+- Reproducible NHANES cohort build (multi-cycle, XPT -> CSV), golden test re-derives it.
+- Deterministic label rule with 11 label-source columns quarantined.
+- Portable-23 feature contract, chosen by ablation, with measured cost.
+- Six tracked NHANES training runs; champion = v15; threshold artifact per run.
+- MLflow registry `corvus-ckd`: v1-v9 legacy UCI archived, v10-v15 NHANES, v15 Production.
+- FastAPI service with dual serving slots, 22 routes, JWT auth, roles, profiles, history.
+- PostgreSQL logging of every v2 prediction, fail-closed if the row cannot be written.
+- React 19 console: 11 pages (login, register, patient/doctor dashboards, assessment form,
+  history, model comparison, models, profiles, patient assignment/detail).
+- Docker Compose stack: db, api, mlflow, frontend, prometheus, grafana, alertmanager,
+  node-exporter, postgres-exporter, airflow.
+- Observability proven live: 3 Prometheus targets up, 7 alert rules loaded, Grafana
+  dashboard provisioned, `corvus_predictions_total{model_version="15"}` incrementing.
+- Airflow DAG `corvus_drift_retrain` with five independent retrain triggers.
+- Test suite: 150 pytest passed / 2 skipped; 5 Playwright E2E passed; CI green on main.
+
+### B. IMPLEMENTED, NEEDS A HUMAN EYEBALL
+- Grafana dashboard content (scrapes and panels verified by API, screenshots pending).
+- Doctor-role flows exist end to end but no doctor account is seeded in the demo DB.
 
 ### C. PARTIALLY IMPLEMENTED
-(none — phases are tracer-complete by design; no half-features remain)
+- Drift: Evidently report generation exists and is wired to a trigger; no long-running
+  production traffic to make the drift signal meaningful yet.
+- Security hardening: JWT, throttled login, required `SECRET_KEY`, env-driven CORS, but no
+  email verification, password reset, or refresh-token rotation.
 
 ### D. PLANNED / NOT STARTED
-CI/CD (GitHub Actions), Prometheus + Grafana monitoring, Evidently drift (UCI-336 vs UCI-857), Airflow retraining + champion/challenger (Claim 5), `src/visualization/` (Component 102).
+- Email verification and password reset.
+- Per-user rate limiting beyond login throttling.
+- Model card export as PDF.
 
 ### E. FUTURE / STRETCH
-Image-based CNN classifier (needs dataset re-selection; ultrasound/histology candidates rejected as unfit); Abu Dhabi EHR survival analysis (different paradigm — Cox/time-to-event).
+- Indian cohort (ICKD, 4,056 patients) as an external validation set.
+- MIMIC-IV for ICU/AKI - different clinical question, low priority.
+- Survey-weighted NHANES estimates (the current model is unweighted by design decision).
 
 ---
 
-## SECTION 4 — DATASETS
+## SECTION 4 - DATASETS
 
-### Primary dataset (VERIFIED from `data/raw/kidney_disease.csv` on 2026-09-23)
-- **Name/source:** UCI Chronic Kidney Disease, identifier **UCI-336** (`kidney_disease.csv`)
-- **Rows:** 400 × **26 columns** (24 features + `classification` + `id`)
-- **Classes:** 250 ckd / 150 notckd (two rows carry a stray `ckd\t` label, normalized at ingest)
-- **Features:** 14 numeric (age, bp, sg, al, su, bgr, bu, sc, sod, pot, hemo, pcv, wc, rc) + 10 categorical (rbc, pc, pcc, ba, htn, dm, cad, appet, pe, ane)
-- **Target:** `classification` → binary-encoded (ckd=1) at clean time
-- **Missingness:** worst column 38% missing post-normalization; `?` markers + empty fields both present
-- **Provenance:** named nephrologist/hospital/institution per UCI documentation (ESTABLISHED IN DISCUSSION; exact names NOT AVAILABLE IN CONTEXT)
-- **Why selected:** only candidate with documented real-world provenance and no leakage/circularity defects.
-
-### Alternatives (from `dataset_analysis.md`, ESTABLISHED IN DISCUSSION)
-| Dataset | Type | Size | Real/Synthetic | Purpose | Problem/Concern | Decision | Status |
-|---|---|---|---|---|---|---|---|
-| UCI-336 (`kidney_disease.csv`) | Tabular clinical | 400 rows | Real | Primary training | Small n; heavy missingness | Selected | In use |
-| UCI-857 (`ckd-dataset-v2.csv`) | Tabular clinical | 200 rows | Real (Bangladeshi cohort) | Forensically disqualified 2026-10-10: numerics pre-binned into ranges; all ten 0/1 indicators perfectly label-separated (P(ckd\|1)=1.0 — target-derived, not measured); no clean external-validation mapping exists | REJECTED for training AND validation | NOT USED |
-| Abu Dhabi EHR | Survival/time-to-event | 491 patients | Real | Considered | `EventCKD35`+`TimeToEventMonths` needs Cox paradigm, not classification | Deferred stretch | FUTURE |
-| 200K risk-progression CSV | Tabular, 82 cols | 200,000 rows | Synthetic | Considered | Label rule-generated from eGFR threshold (85.3 vs 50.0 split at 60.0) — leaky | Rejected | NOT USED |
-| 20K severity CSV | Tabular, 43 cols | 20,000 rows | Synthetic | Considered | Zero missingness across rare labs; suspiciously exact class splits | Rejected | NOT USED |
-| `updated_ckd_dataset_with_stages.csv` | 4,000 rows | Mixed derived | `ckd_pred` = another model's predictions (circular), `cluster` = clustering output | Rejected | NOT USED |
-| Kaggle "KDIGO 2026" (`CKD_Dataset_Enhanced.csv` + `raw_CKD_dataset.csv`) | 25,800 rows, 67/36 cols | Generated (zero nulls in 67 clinical cols) | Forensically vetted 2026-09-23: Target deterministic in (GFR_Category × Albuminuria_Category) — 7 combos, 0 mixed; card stats contradicted file (claimed balanced 17–22%, actual 75% Healthy); both files shared identical targets | Rejected, files deleted from `data/raw/` | NOT USED |
-| ARFF mirrors / `kidney_disease_test.csv` / `CKD_Preprocessed.csv` | Same 400 rows | Real | Redundant (subset, pre-cleaned) | Rejected as inputs | NOT USED |
-
-## DATASET DECISION TABLE
-Primary UCI-336 (real, provenanced) → big-cohort NHANES derivation SELECTED 2026-10-10 (5,343 adults, 17.3% positive, quarantine-held, audit-passed) → everything synthetic or circular rejected for demonstrable validity defects, not taste.
-
----
-
-## SECTION 5 — DATA PIPELINE
-
-RAW DATA (`data/raw/kidney_disease.csv`, immutable, never modified)
-↓ INGESTION (`load_raw_data`: `?`→NA regex, strip whitespace/tabs on cells + columns, `pd.to_numeric` coercion downstream)
-↓ CLEANING (`clean_raw`: drop `id` from features but carry as lineage, normalize target text, drop unlabeled rows, binary-encode via `positive_label`, warn-and-drop unclassified columns)
-↓ VALIDATION (GX suite: column-set match, label domain, target not-null, row count 300–500, 5 non-null-proportion floors; plus config row bounds + exact-duplicate check; fail-closed `success=False`, pipeline aborts)
-↓ SPLITTING (`split_raw`: id+target excluded from X, single stratified split — see Section 6)
-↓ PREPROCESSING (Pipeline fit on train only; transform all; `_to_dataframe` with fallback warning)
-↓ TRANSFORMED DATA (`train/val/test.csv` = 24 features + target + lineage; `*_raw.csv` = cleaned-untransformed + target + lineage; `preprocessing_pipeline.joblib`)
-↓ MODEL TRAINING (Phase 2 reads `*_raw.csv` only — never transformed CSVs)
-
-Per-step WHAT→WHY→TECH→STATUS: ingestion (sanitize dirty clinical CSVs → pandas → COMPLETED); validation (stop bad drops early → GX → COMPLETED); lineage (`__source_row` index + `__source_id` id value on every output row → clinical traceability → COMPLETED); persisted outputs (CSVs + joblib → audit + training inputs → COMPLETED).
-
----
-
-## SECTION 6 — DATA SPLITTING & LEAKAGE PREVENTION
-
-- **Sizes (VERIFIED):** train 279 / val 40 / test 81 (= 400; no rows lost — all labels present)
-- **Stratification (VERIFIED):** ≈62.5% positive in all three splits (train 174/105, val 25/15, test 51/30)
-- **Order:** split raw cleaned frame FIRST; pipeline `.fit()` sees `X_train` only (code comment marks the fix line); val/test only ever `.transform()`ed.
-- **Proof:** index-disjointness test + imputer-`statistics_` == train-medians-exactly test (both green).
-
-> **Split before fit.** Fitting imputers/scalers/encoders on the full dataset lets test-set statistics (means, medians, category vocabularies) leak into training-time preprocessing, inflating scores. The original code did this; review caught it; the fix (split first, fit train-only) is asserted by tests, not just documented.
-
----
-
-## SECTION 7 — PREPROCESSING
-
-- **Numeric (14):** `SimpleImputer(median)` → `StandardScaler` (median chosen for skewed labs; scaler required by LR/MLP).
-- **Categorical (10):** `SimpleImputer(most_frequent)` → `OneHotEncoder(handle_unknown="ignore", drop="first")` (drop-first favors linear models; recorded trade-off for tree reads).
-- **Structure:** `ColumnTransformer` inside one `Pipeline` → single `.joblib` artifact.
-- **Output (VERIFIED):** 24 transformed features, 0 nulls; feature names logged (`num__*`, `cat__*`).
-- **Inference reuse:** API loads the winner run's co-logged pipeline; startup probe asserts pipeline width == estimator `n_features_in_`, raising loudly on skew.
-
-## Claim 2
-“Fitted preprocessing pipeline stored as an MLflow artifact in the same run as the model.” COMPLETED: every one of the 9 runs logs `preprocessing/preprocessing_pipeline.joblib` + cloudpickle model in a single run; the serving loader downloads the pipeline from the winner's `run_id`. Together-at-train, together-at-serve: reproducibility, consistency, no leakage, no skew.
-
----
-
-## SECTION 8 — FEATURES
-
-| Feature | Type | Meaning | Preprocessing | Status |
-|---|---|---|---|---|
-| age, bp, sg, al, su, bgr, bu, sc, sod, pot, hemo, pcv, wc, rc | numeric | Clinical labs/vitals (exact medical semantics NOT AVAILABLE IN CONTEXT — use field names only) | median-impute + scale | In use |
-| rbc, pc, pcc, ba, htn, dm, cad, appet, pe, ane | categorical | Clinical indicators (vocabularies in `api/schemas.py` Literals, verified exhaustive over raw) | mode-impute + one-hot | In use |
-| classification | target | ckd/notckd → 1/0 | binary encode | In use |
-| id | identifier | row id | dropped from features, kept as `__source_id` lineage | Lineage only |
-
-Raw 24 → final 24 transformed (14 scaled + 10 one-hot-minus-first-level = VERIFIED 24 columns). Leakage-excluded: target, `id`, lineage columns (dropped via imported constants in train.py, API, and batch path).
-
----
-
-## SECTION 9 — MACHINE LEARNING MODELS
-
-All 9 trained from `*_raw.csv` through train-only pipeline re-fits, library defaults + `random_state=42`, no grid search (documented: grids fit noise at n=279). Metrics are test-split, ROC-AUC from probabilities.
-
-| # | Model | Config (VERIFIED from code + store) | Why included | Test ROC-AUC | Status |
-|---|---|---|---|---|---|
-| 1 | Logistic Regression | `LogisticRegression(random_state=42)` | Linear baseline | 1.000 (acc 0.988) | Trained |
-| 2 | Decision Tree | `DecisionTreeClassifier(random_state=42)` | Split-quality baseline | 0.980 (acc 0.975) | Trained |
-| 3 | Random Forest | `RandomForestClassifier(random_state=42)` | Bagging vs single tree | 1.000 (acc 1.000) | Trained |
-| 4 | Gradient Boosting | `GradientBoostingClassifier(random_state=42)` | Boosting foil to bagging | 1.000 | Trained |
-| 5 | XGBoost | `XGBClassifier(random_state=42)` | Sparsity-aware splits for gappy columns | 1.000 | Trained |
-| 6 | LightGBM | `LGBMClassifier(random_state=42, verbosity=-1)` | Second boosting family | 1.000 | Trained |
-| 7 | MLP-ReLU | `MLPClassifier((50,), relu, max_iter=500, seed 42)` | Nonlinear DL probe | 1.000 (acc 1.000) | Trained — WINNER |
-| 8 | MLP-Tanh | as above, tanh | Activation comparison | 1.000 (acc 1.000) | Trained |
-| 9 | MLP-Sigmoid | as above, `logistic` | Activation comparison | 1.000 (acc 0.988) | Trained |
-
-Nine configurations confirmed (code `ESTIMATORS` + `ACTIVATIONS` + 9 MLflow runs). Multiple models evaluated because winner must be chosen on evidence, and the comparison itself is the academic deliverable.
-
----
-
-## SECTION 10 — EXPERIMENTATION
-
-- **Experiment:** `corvus-ckd` (VERIFIED live). **Runs:** 9. **Seeds:** 42 family throughout. **Metrics/run:** accuracy, precision, recall, F1, ROC-AUC. **Methodology:** single stratified test split (81 rows); metrics computed on it; winner = strict max ROC-AUC, no tie-break (locked D-03).
-
-| Model / Config | ROC-AUC | Other Metrics | Status |
-|---|---|---|---|
-| mlp-relu | 1.000 | acc 1.000, prec/rec/F1 1.000 | Winner (v9) |
-| mlp-tanh | 1.000 | acc 1.000 all | Trained |
-| lightgbm | 1.000 | acc 1.000 all | Trained |
-| xgboost | 1.000 | acc 1.000 all | Trained |
-| gradient-boosting | 1.000 | acc 1.000 all | Trained |
-| random-forest | 1.000 | acc 1.000 all | Trained |
-| logistic-regression | 1.000 | acc 0.988, rec 0.980, F1 0.990 | Trained |
-| mlp-sigmoid | 1.000 | acc 0.988, rec 0.980, F1 0.990 | Trained |
-| decision-tree | 0.980 | acc 0.975, rec 0.961, F1 0.980 | Trained |
-
-### Winning model: MLP-ReLU — version 9 — criterion: strict-max test ROC-AUC.
-Candid note (VERIFIED numbers): 7 configs tie at 1.0; ReLU wins by run order, not separation — the 81-row test set cannot distinguish the top models. Tree ensembles are effective co-champions; all versions persist so the champion can change with drift evidence.
-
----
-
-## SECTION 11 — MLFLOW
-
-- **Why MLflow:** params+metrics+artifacts+registry in one system; `models:/name/version` URIs let serving resolve models without file paths.
-- **Experiment `corvus-ckd`:** 9 runs; ~60 params/run; 5 metrics/run; artifacts per run: `preprocessing/` pipeline + `model/` (cloudpickle-pinned; 3.x skops default explicitly overridden).
-- **Registry `corvus-ckd` (VERIFIED live 2026-09-23):** v1–v8 Archived, v9 Production (promoted as Phase 3's first act; was Staging after Phase 2).
-- **Backend:** file store `mlruns/` + `MLFLOW_ALLOW_FILE_STORE=true` (3.x maintenance gate); container uses a URI-rebased synced copy (`docker/sync_mlruns_container.py`, 48 files); SQLite/Postgres migration deferred to Phase 5.
-
-## CLAIM 2 — VERIFIED LIVE
-TRAINING → MLFLOW RUN (params + 5 metrics + pipeline + model) → REGISTRY (v1–v9) → STAGING (v9, Phase 2) → PRODUCTION (v9, Phase 3). Every run independently satisfies “pipeline and model in the same run.”
-
----
-
-## SECTION 12 — MODEL SELECTION & LIFECYCLE
-
-- **Candidates:** 9 configs. **Winner:** mlp-relu. **Version:** 9 (`run_id 10ac3e5e`, VERIFIED from store). **Criterion:** automated strict-max ROC-AUC (`evaluate.py:select_winner` = `max` by `roc_auc`, no tie-break — `src/evaluation/evaluate.py:49-51`).
-- **Lifecycle (VERIFIED live):** every run registered a version (D-06/D-07); winner → Staging (Phase 2 `evaluate.py:apply_registry_stages`), superseded → Archived; v9 Staging → Production by explicit human-promoted script (`scripts/promote_production.py`, Phase 3 first act). Production was empty until that promotion — never auto-deployed.
-- **AUTOMATED SELECTION vs HUMAN PROMOTION:** selection (max ROC-AUC) is code; Staging→Production is a human decision executed via script. Do NOT imply automatic production deployment.
-
----
-
-## SECTION 13 — FASTAPI
-
-Service: `Corvus CKD Prediction API` (`api/app.py`, VERIFIED by read). Lifespan pins version once from config/env, loads estimator + co-logged pipeline, asserts pipeline width == `n_features_in_`, binds Postgres session.
-
-| Method | Route | Input | Output | Purpose | Validation | Error Behavior | Status |
-|---|---|---|---|---|---|---|---|
-| POST | `/predict` | `CKDRequest` (24 fields, JSON) | `PredictionResponse` | Single prediction | Pydantic, 422 | 503 no-DB; 500 no-traceback | Live 200 v9 |
-| POST | `/batch_predict` | CSV upload (`UploadFile`) | `BatchPredictionResponse` | Batch scoring | All rows validate first; 422 with 1-indexed row number | 413 over 5 MB / 10k rows; 422 bad CSV | Live, tested |
-| GET | `/health` | none | `HealthResponse` | Readiness + version | — | — | Live `ok` v9 |
-| GET | `/model_info` | none | `ModelInfoResponse` | Model identity | — | — | Live v9 |
-
-Strict schemas: numerics `float | None` (blanks → imputers, D-05); categoricals `Literal` vocabularies verified against raw (D-06); NO `ge`/`le` ranges (raw extremes bp 180 / sc 76 would false-reject). Startup pin documented as FR-4.4 deviation (D-02) in code docstring.
-
----
-
-## SECTION 14 — PREDICTION VERSIONING
-
-**Claim 4 (as implemented):** every prediction response and every prediction-log row carries the serving `model_version`, resolved from the MLflow Registry (pinned at startup from the Production stage).
-**Chain:** Prediction → `model_version: "9"` → Registry `corvus-ckd` v9 → `run_id 10ac3e5e` → exact pipeline + estimator + params + metrics. Any historical prediction re-resolves to its exact model. **Benefit:** auditability (which model said what), safe rollback, drift attribution per version.
-
----
-
-## SECTION 15 — POSTGRESQL
-
-- **Technology:** PostgreSQL 16 (Compose service `db`, health-gated). **Table:** `predictions` (`api/db.py:28-68`, VERIFIED).
-- **Schema (VERIFIED):** `id` PK autoincrement; 14 nullable Floats (age…rc); 10 `String(16)` categoricals; `prediction` Integer; `probability` Float; `model_version` String(32); `created_at` DateTime (server default + client default).
-- **Behavior:** one row per prediction, single commit per request/batch (all-or-nothing); `DATABASE_URL` env wins, config fallback, empty default; unset → engine `None` → `/predict` 503 naming `DATABASE_URL` (D-03, no SQLite); unreachable configured store raises after 3 retries; URL value never logged.
-- **Why logs matter:** traceability (what was asked/answered/by which version), auditing, debugging, monitoring input (Phase 4), drift fuel (Phase 5).
-
----
-
-## SECTION 16 — FRONTEND
-
-- **Tech/purpose:** Streamlit (`frontend/app.py`, VERIFIED by read) — thin demo client: grouped 24-field form (Vitals / Blood labs / History, units hinted), CSV batch tab, demo-patient presets (real test rows A/B), verdict cards (⚠️/✅ + probability bar + version), batch summary metrics + results-CSV download, sidebar with live `/health` + `/model_info`.
-- **Flow:** form → `POST /predict`; CSV → `POST /batch_predict`; displays server responses; 422/413/500 surfaced verbatim; disconnect names `API_URL`.
-- **Separation:** zero model logic; blanks sent as null for server imputers; categorical dropdowns mirror vocabularies as convenience only — server owns all validation.
-- **Screenshots:** SCREENSHOT EXISTENCE NOT AVAILABLE IN CONTEXT (no screenshot files in repo; UI verified via live HTTP 200 smoke).
-
----
-
-## SECTION 17 — DOCKER / DEPLOYMENT
-
-- **Services (VERIFIED `docker/docker-compose.yml`):** `api` (build `docker/Dockerfile` → `python:3.11-slim`, `uvicorn api.app:app :8000`, ports `8000:8000`); `mlflow` (same image, tracking server `:5000`, ports `5000:5000`); `db` (`postgres:16`, `pgdata` volume, `pg_isready` healthcheck).
-- **Wiring:** Compose network `docker_default`; `api.depends_on db:healthy`; `DATABASE_URL=postgresql+psycopg2://corvus:corvus@db:5432/corvus` (dev creds, accepted); `MLFLOW_TRACKING_URI=http://mlflow:5000`; mlruns via URI-rebased synced copy (`docker/sync_mlruns_container.py`, 48 files — fixes Windows-absolute artifact URIs unreadable in Linux containers); tracking-server `--allowed-hosts "mlflow:*,localhost:*,127.0.0.1:*"` (fixed live Host-header rejection).
-- **Flow:** USER → Streamlit (host :8501) → FastAPI (:8000) → MODEL (v9) → DATABASE (log). Infra: TRAINING → MLFLOW file store → REGISTRY; API ↔ Postgres; MLflow + API share the synced store.
-- **Exact commands (VERIFIED used):** `.\venv\python.exe docker/sync_mlruns_container.py` then `docker compose -f docker/docker-compose.yml up -d --build`; daily: `up -d` (no build); stop: `down` (volume survives; `-v` wipes — never casual).
-
----
-
-## SECTION 18 — TESTING
-
-Suite: pytest 8.x, `tests/`, synthetic fixtures + `tmp_path` isolation (never real data/`mlruns`/Postgres). Counts VERIFIED by collection 2026-09-23:
-
-| File | Count | What it proves |
-|---|---|---|
-| `test_api.py` | 19 | Endpoints, 422s, version stamping, batch semantics, DB-unavailable branch |
-| `test_ingestion.py` | 4 | `?`/whitespace quirks, summary shape, config override |
-| `test_preprocessing.py` | 5 | Target cleaning, disjoint splits, Pipeline type, train-median imputation, config column origin |
-| `test_registry.py` | 5 | Versioning, Staging/Archived transitions |
-| `test_save_outputs.py` | 1 | Isolated round-trip, lineage cols, raw artifacts, real-dir untouched |
-| `test_training.py` | 5 | Config construction, lineage exclusion (24 features), Claim-2 run artifacts |
-| `test_validation.py` | 6 | Gate accept + 5 rejections (label, target, tiny, oversize, duplicates) |
-| **Total** | **45/45 green** | Full lifecycle from quirks to serving |
-
-Number lineage (never combine): **16/16** = Phase 1 suite after hardening (13 + column/oversize/duplicate tests); **26/26** = after Phase 2 (+10 training/registry); **45/45** = after Phase 3 (+19 API); **14/14** = Phase 1 verifier must-haves; **6/6** = Phase 2; **14/14** = Phase 3. Reviews: 0 criticals in Phase 2 (11 warn/6 info) and Phase 3 (9 warn/9 info) — advisory, open.
-
----
-
-## SECTION 19 — FORMAL PROJECT CLAIMS
-
-| Claim | Exact wording (from PROJECT.md / REQUIREMENTS.md) | Evidence | Implementation | Significance | Status |
-|---|---|---|---|---|---|
-| Claim 2 | Fitted preprocessing pipeline stored as MLflow artifact in same run as model | 9 runs each carry `preprocessing/` + `model/`; loader resolves pipeline from winner `run_id` | `train.py:141-153`, `model_loader.py:89-92` | Reproducibility; no train-serve skew | COMPLETED (verified live) |
-| Claim 4 | Log deployed model version per prediction | Every response + every `predictions` row carries `model_version` | `app.py:130-134`, `db.py:60` | Auditability; rollback; drift attribution | COMPLETED (proven live v9) |
-| Claim 5 | 5 Airflow trigger types + champion/challenger promotion + archived retention | Registry Staging/Production/Archived mechanics exist; no DAGs | None yet | Self-healing loop | PLANNED (Phase 5) |
-| Component 102 | Standalone data visualization module | `notebooks/` exploration only; no `src/visualization/` | None yet | Shippable EDA component | PLANNED (Phase 6) |
-| Claim 1 | NOT AVAILABLE IN CONTEXT (full text never shared) | — | — | — | UNKNOWN |
-| Claim 3 | NOT AVAILABLE IN CONTEXT (full text never shared) | — | — | — | UNKNOWN |
-
----
-
-## SECTION 20 — PROJECT PHASE HISTORY
-
-| Phase | Date | Objective | Implementation | Results | Tests | Status | Remaining Work |
-|---|---|---|---|---|---|---|---|
-| 1 — Data Pipeline | 2026-09-19, hardened 09-21 | Leak-safe ingest→validate→split→pipeline | Quirk ingestion, GX gate, 279/40/81 split, single Pipeline, lineage | 24 feats, 0 nulls, stratified | 16/16, 14/14 must-haves | COMPLETED | None |
-| 2 — Training + Tracking | 2026-09-21 | 9 configs, MLflow, registry | train/train_mlp/evaluate, 9 runs, v9 Staging | 7× ROC-AUC 1.0, winner mlp-relu | 26/26, 6/6 | IMPLEMENTED / UAT PENDING (MLflow-UI eyeball) | 1 human check |
-| 3 — API + Containers | 2026-09-21→23 | Versioned service + Postgres + Compose + UI | api/, Postgres log, Compose, Streamlit, v9→Production | Live 200s v9, DB row, clean down | 45/45, 14/14 | IMPLEMENTED / UAT PENDING (browser check) | 1 human check |
-| 4 — CI/CD + Monitoring | DATE NOT AVAILABLE | Actions pipeline; Prometheus + Grafana | None | — | — | PLANNED | All |
-| 5 — Drift + Retraining | DATE NOT AVAILABLE | Evidently + Airflow + Claim 5 | None | — | — | PLANNED | All |
-| 6 — Visualization + Polish | DATE NOT AVAILABLE | Component 102 + integration + demo | None | — | — | PLANNED | All |
-
-Data track (new, precedes 4–6 per user decision): vet big cohort → harmonize → re-run loop → external validation on UCI-857 → promote new champion. No verified candidate yet (4 rejections logged).
-
----
-
-## SECTION 21 — DRIFT DETECTION & RETRAINING — **PLANNED** (no implementation evidence)
-
-UCI-336 (train) → PRODUCTION MODEL (v9) → PRODUCTION DATA (Postgres log) → DRIFT DETECTION (Evidently: live vs 336 baseline; UCI-857 as simulated incoming batch) → ALERT past threshold → AIRFLOW (5 trigger types) → RETRAIN → CHALLENGER vs CHAMPION → PROMOTE iff better (Claim 5) → ARCHIVE superseded. **Entire flow PLANNED — present as roadmap, never as built.**
-
----
-
-## SECTION 22 — CI/CD & MONITORING — **PLANNED** (no implementation evidence)
-
-GitHub Actions (test → build → push), Prometheus (latency, request count, error rate), Grafana dashboard: all PLANNED (Phase 4/6-7). No `.github/`, no `metrics.py`, no dashboard JSON exists. **IMPLEMENTED today:** per-commit local pytest discipline + Loguru file logs + MLflow tracking. Do not present monitoring as deployed.
-
----
-
-## SECTION 23 — COMPLETE ARCHITECTURE
-
-USER (browser: form + CSV) → STREAMLIT (:8501, host; zero model logic) → FASTAPI (:8000, lifespan-pinned v9, Pydantic 422 gate) → MODEL (Pipeline + MLP-ReLU, width-probed) → versioned JSON + DATABASE (Postgres `predictions`, full record). Infra: TRAINING (offline Phases 1–2) → MLFLOW file store → REGISTRY (v9 Production); API ↔ Postgres via `DATABASE_URL`; MLflow + API share URI-rebased synced store; Compose health-gates `db` before `api`. Future: Prometheus scrape, Evidently reads of Postgres log, Airflow retrain loop.
-Per connection — Streamlit→API: HTTP POST, serving; API→Model: in-process transform+predict; API→DB: SQLAlchemy INSERT per prediction; Training→MLflow: runs + artifacts + versions; MLflow→API: `models:/corvus-ckd/9` + pipeline download at startup.
-
----
-
-## SECTION 24 — ENGINEERING PRACTICES (all VERIFIED in code)
-
-| Practice | Implementation | Evidence | Benefit | Status |
-|---|---|---|---|---|
-| Fail-closed validation | GX gate aborts pipeline; 422 before inference; 503 no-DB | `validate.py`, `app.py:72-78` | Bad data never flows downstream | Active |
-| Leak-safe ML | Split before fit; train-only fitting asserted by tests | `preprocess.py`, median-equality test | Honest metrics | Active |
-| Config-driven | Single YAML; deepcopy per caller; no second config mechanism | `config.yaml`, `config.py` | Dataset swaps = config edits | Active |
-| Reproducible seeds | 42 family; defaults + documented rationales, no grids at n=279 | `train.py:49-62` | Repeatable runs | Active |
-| Data lineage | `__source_row` + `__source_id` on every output row | `preprocess.py`, tests | Row-level traceability | Active |
-| Versioned serving | Startup pin; width probe; version on every response/row | `model_loader.py`, `app.py` | No skew; auditability | Active |
-| Safe errors | 500s without tracebacks; secrets never logged | `app.py:207-212`, `db.py:81-89` | No info leakage | Active |
-| Atomic batches | All-or-nothing CSV; single commit; 5 MB/10k-row caps | `app.py:137-189` | No partial states; anti-DoS | Active |
-| Test isolation | Synthetic fixtures; tmp tracking/DB; real dirs snapshotted | `tests/`, `conftest.py` | Tests never touch prod state | Active |
-
-No auth, no rate limiting, no TLS, no security certification — do NOT claim them (localhost demo; recorded gap).
-
----
-
-## SECTION 25 — IMPORTANT TECHNICAL DECISIONS
-
-- **Why UCI-336?** Only provenanced real cohort without label defects → alternatives rejected on evidence, not taste. STATUS: locked.
-- **Why UCI-857 reserved?** Independent cohort = only honest external validation available → spending it on training destroys the generalization proof. STATUS: locked.
-- **Why split before fit?** Full-fit leaks test statistics into preprocessing → caught in review, fixed, test-asserted. STATUS: enforced.
-- **Why one sklearn Pipeline?** Single serializable artifact = Claim 2 object + identical train/serve transforms. STATUS: built.
-- **Why 9 models?** Evidence-based selection + the comparison is itself the deliverable; defaults-only at n=279 (grids fit noise). STATUS: built.
-- **Why ROC-AUC?** Threshold-free ranking for a clinical screen; strict-max, no tie-break, recorded. STATUS: locked.
-- **Why MLflow?** Params+metrics+artifacts+registry in one queryable system; `models:/` URIs decouple serving from files. STATUS: built.
-- **Why FastAPI?** Typed async Python API matching the ML stack; Pydantic 422s; TestClient-testable. STATUS: built.
-- **Why PostgreSQL?** Relational audit log + SQL-readable drift fuel; one backend, no SQLite split. STATUS: built.
-- **Why Compose?** Full system in one command; health-gated startup. Kubernetes cut as disproportionate. STATUS: built.
-- **Why Streamlit?** Single-file demo UI; zero model logic; full Next.js care platform parked as M2. STATUS: built (prototype-grade by design).
-- **Why not synthetics?** 200K leaky label, 20K synthetic fingerprints, 4K circular `ckd_pred`, 25.8K rule-deterministic Target — each rejected on forensic evidence. STATUS: locked, files deleted.
-
----
-
-## SECTION 26 — LIMITATIONS (all supported — state these plainly)
-
-- 279 training rows; 81-row test set cannot separate top models (7× ROC-AUC 1.0 tie).
-- Single-center cohorts; no external validation performed yet (UCI-857 reserved, unused).
-- No clinical validation, no clinician review, no regulatory standing.
-- No CI/CD, monitoring, drift, or retraining — roadmap, not reality.
-- File-store tracking (maintenance-gated upstream); no auth/rate-limit/TLS.
-- Two UAT eyeball checks open (MLflow UI, Streamlit browser).
-- 17 advisories across two code reviews unaddressed (0 critical).
-
-> CORVUS SHOULD NOT BE PRESENTED AS A CLINICALLY DEPLOYED DIAGNOSTIC SYSTEM — no clinical validation or deployment evidence exists. It is an engineering demonstration of the MLOps lifecycle on real clinical data.
-
----
-
-## SECTION 27 — FUTURE SCOPE
-
-**Immediate:** close 2 UAT checks; CV + confidence intervals in `evaluate.py`; Phase 4 CI/CD + monitoring.
-**Medium-term:** Phase 5 drift + Airflow retraining (Claim 5); Phase 6 Component 102 + integration + demo polish; NHANES-with-leakage-protocol as Phase 6 stretch; data-track retrain on a vetted big cohort (none verified yet).
-**Long-term / stretch:** M2 Next.js care platform (doctor/patient roles, histories, review); image-based CNN (needs dataset re-selection); Abu Dhabi survival analysis (different paradigm). All FUTURE unless built.
-
----
-
-## SECTION 28 — PPT FIGURES & SCREENSHOTS
-
-| # | Slide purpose | Visual needed | Shows | Why | Source | Availability |
-|---|---|---|---|---|---|---|
-| 1 | EDA credibility | Missingness heatmap + bar | 38% worst-column gaps, quirk reality | Proves real messy data | `reports/figures/missingness_heatmap.png`, `missingness_bar.png` | VERIFIED present |
-| 2 | EDA signal | Hemo KDE by class + RBC counts + correlation heatmap | Class separation + feature relations | Evidence of learnable signal | `reports/figures/` (3 files) | VERIFIED present |
-| 3 | Pipeline | Split-before-fit flow diagram | Raw→split→fit-train-only→transform-all | The leakage story in one image | Draw from Section 5/6 text | Must be drawn |
-| 4 | Architecture | System diagram (Section 23) | User→UI→API→Model→DB + infra | Whole system at a glance | Draw from Section 23 | Must be drawn |
-| 5 | Results | MLflow experiment screenshot | 9 runs × metrics + artifacts | Tracking is real, not claimed | http://localhost:5000 | Capture live |
-| 6 | Registry | Models tab screenshot | v9 Production, v1–v8 Archived | Lifecycle + human gate | http://localhost:5000 | Capture live |
-| 7 | API | `/predict` JSON response | prediction + probability + version 9 | Claim 4 visible | curl/Streamlit | Capture live |
-| 8 | UI | Streamlit form + verdict card | Demo surface | Human-usable product | Browser :8501 | Capture live |
-| 9 | DB | Postgres row SELECT | Timestamped versioned row | Audit trail exists | `psql` output | Capture live |
-| 10 | Tests | pytest green tail | 45 passed | Quality gate proof | Terminal screenshot | Capture live |
-| 11 | Roadmap | MLOps loop diagram | Built (1–3) vs planned (4–6) vs M2 | Honest scope boundary | Draw from Sections 20/27 | Must be drawn |
-
-No screenshots exist as files — all "capture live" items need a running stack + browser at deck-building time.
-
----
-
-## SECTION 29 — EXAMINER / VIVA QUESTIONS
-
-**Basic:** What is Corvus? → MLOps lifecycle platform for CKD prediction, 400-row UCI pilot, 3 of 6 phases built. What works today? → Pipeline, 9 tracked models, versioned API + Postgres + Docker, 45 tests.
-**Dataset:** Why UCI-336? → Only provenanced real cohort without label defects; 250/150 split, 24 features, 38% worst missingness. Why not the bigger ones? → 200K leaky eGFR label; 20K synthetic fingerprints; 4K circular `ckd_pred`; 25.8K rule-deterministic Target (7 combos, 0 mixed) — each rejected on forensic evidence, files deleted.
-**Leakage:** What is data leakage? → Test information influencing training (statistics, vocabularies, labels). Why split before preprocessing? → Otherwise imputer/scaler/encoder absorb test stats; original code did this, review caught it, median-equality test now enforces the fix.
-**ML:** Why 9 models? → Evidence-based selection; comparison is the deliverable. Why MLP-ReLU? → Strict-max ROC-AUC per locked rule; honest footnote: 7-way tie at 1.0, wins by run order, trees are co-champions. Why ROC-AUC? → Threshold-free clinical ranking. Why defaults only? → Grids fit noise at n=279.
-**MLflow/Registry:** Why MLflow? → Params+metrics+artifacts+registry queryable in one system; `models:/` URIs decouple serving from files. Claim 2? → Pipeline + model co-logged in all 9 runs; serving loader resolves pipeline from winner run_id. Claim 4? → `model_version` on every response + DB row, resolved from Registry Production. Why versioning? → Auditability, rollback, drift attribution; v9 Production via human gate, never auto-deployed.
-**API/DB/Docker:** Why FastAPI? → Typed Python API, Pydantic 422s, TestClient-tested. DB down? → 503 fail-closed naming DATABASE_URL, never silent serving. Batch bad row? → Whole batch 422 with 1-indexed row number. Why Postgres? → Relational audit log + SQL drift fuel; one backend per D-03. Why Docker? → One-command full system; K8s cut as disproportionate.
-**MLOps/future:** Production model selected how? → Automated strict-max + human Staging→Production promotion. Drift how? → PLANNED: Evidently live-vs-336 + UCI-857 simulated batch → Airflow retrain → challenger iff better (Claim 5). Why UCI-857? → Independent cohort; spending it on training destroys the generalization proof.
-**Limitations:** State them first: n=279, no external/clinical validation, no CI/monitoring/drift yet, 2 UAT checks open. Never claim clinical deployment.
-
----
-
-## SECTION 30 — TEAM CONTRIBUTION
-
-> **TEAM CONTRIBUTIONS NOT AVAILABLE IN CONTEXT** — `.planning/PROJECT.md` records "Developer: Solo". No per-person contribution records exist.
-
-> **SUGGESTED PRESENTATION DIVISION — NOT HISTORICAL CONTRIBUTION** (4 members × actual modules):
-> 1. Data engineering — ingestion, validation, leak-safe preprocessing, lineage (`src/ingestion`, `src/preprocessing`, `src/validation`).
-> 2. Modeling & tracking — 9 configs, metrics, MLflow runs, registry lifecycle (`src/training`, `src/evaluation`, MLflow UI + Models tab).
-> 3. Serving & deployment — API, Postgres logging, Docker stack, Streamlit demo (`api/`, `docker/`, `frontend/`, live demo).
-> 4. Quality & roadmap — test suite, verification, Claims 1–5 status, limitations, drift/retraining + M2 future (tests, UAT, roadmap slides).
-
----
-
-## SECTION 31 — FINAL 12–14 SLIDE STORYLINE
-
-| Slide | Title | Purpose | Key Facts | Visual | Presenter |
-|---|---|---|---|---|---|
-| 1 | Corvus: CKD MLOps Platform | Identity + pitch | One-line pitch; 3/6 phases built | Title + stack badges | (per-team) |
-| 2 | Problem & Motivation | Why MLOps, not notebooks | Model rot; notebook gaps → lifecycle answer | Problem→Gap→Solution | — |
-| 3 | Dataset & Selection | Provenance + rejections | 400 rows 250/150; 4 alternatives rejected on evidence | Missingness plot + decision table | — |
-| 4 | Validation & Leak-Safe Preprocessing | Trustworthy inputs | GX gate; split-before-fit; 279/40/81; 24 feats | Pipeline flow diagram | — |
-| 5 | Architecture | Whole system | User→UI→API→Model→DB + infra (Sec 23) | Architecture diagram | — |
-| 6 | Models (9 configs) | Comparison design | 6 classical + 3 MLP; defaults+seeds rationale | Config table | — |
-| 7 | Results | Honest metrics | 7× ROC-AUC 1.0 + tiebreak footnote | MLflow screenshot + table | — |
-| 8 | MLflow & Registry | Claim 2 + lifecycle | Co-logged runs; v9 Production via human gate | Models-tab screenshot | — |
-| 9 | API + Claim 4 | Versioned serving | 4 endpoints; version on every answer | `/predict` JSON screenshot | — |
-| 10 | Postgres + Docker | Audit + deploy | Full-record rows; one-command stack | DB row + compose up | — |
-| 11 | Testing & Verification | Quality proof | 45/45; 14+6+14 must-haves; 0 criticals | pytest green screenshot | — |
-| 12 | Roadmap & Future | Honest boundary | Built vs planned vs M2; data-track next | MLOps loop diagram | — |
-| 13 | Limitations | Credibility | Small-n, no clinical validity, open UAT | Plain list | — |
-| 14 | Conclusion | Close | Engine built; product path clear | 5 core sentences | — |
-
----
-
-## SECTION 32 — FIVE CORE PROJECT SENTENCES
-
-1. Corvus trains on 400 real UCI CKD rows (250 CKD / 150 healthy, 24 features) after documented rejection of four larger-but-invalid alternatives.
-2. A split-before-fit sklearn Pipeline (279/40/81, median-imputed, 24 outputs) guarantees no test leakage, enforced by tests.
-3. Nine seeded configs were tracked in MLflow and strict-max ROC-AUC selected MLP-ReLU, registry v9, with tree ensembles as effective co-champions.
-4. Pipeline and model are co-logged in every run (Claim 2) and every prediction carries its registry version into PostgreSQL (Claim 4).
-5. A health-gated Docker Compose stack serves the versioned API with a Streamlit UI, covered by 45 passing tests.
-
----
-
-## SECTION 33 — PROJECT FACT SHEET
-
-| Category | Verified Fact |
+### Primary cohort (VERIFIED from `data/nhanes/nhanes_ckd_multi.csv`)
+| Property | Value |
 |---|---|
-| Project | Corvus — CKD MLOps platform, academic (TY EDI), solo dev |
-| Domain | Chronic Kidney Disease binary classification |
-| Primary Dataset | UCI-336 `kidney_disease.csv` |
-| Dataset Size | 400 rows × 26 cols; 250 ckd / 150 notckd |
-| Target | `classification` → 1/0 |
-| Features | 14 numeric + 10 categorical |
-| Split | 279 / 40 / 81, stratified ≈62.5% |
-| Preprocessing | Single Pipeline: median/mode impute, scaler, one-hot(ignore, drop-first); 24 out, 0 nulls |
-| Models | LR, DT, RF, GB, XGB, LGBM + MLP×3 (50,), max_iter 500, seeds 42 |
-| Winning Model | MLP-ReLU, registry v9, `run_id 10ac3e5e` |
-| Best Metric | Test ROC-AUC 1.000 (7-way tie; strict-max rule) |
-| Experiment | `corvus-ckd`, 9 runs, 5 metrics + pipeline + model each |
-| MLflow | 3.16.1 file store + opt-in flag; container synced copy |
-| Registry | v1–v8 Archived, v9 Production (human-promoted) |
-| API | FastAPI: predict / batch_predict / health / model_info; startup-pinned v9; strict 422; 413 caps |
-| Database | Postgres 16 `predictions`: 24 fields + outcome + version + timestamp |
-| Frontend | Streamlit: grouped form, presets, verdict cards, batch + CSV download |
-| Deployment | Compose (api :8000, mlflow :5000, db :5432); python:3.11-slim |
-| Tests | 45/45 (19+4+5+5+1+5+6); must-haves 14+6+14; reviews 0 critical |
-| Current Status | Phases 1–3 built; 2 UAT eyeball checks open; 4–6 + data track planned |
-| Main Future Work | Vetted big-cohort retrain → CI/CD + monitoring → drift/retraining → polish → M2 care platform |
+| Source | CDC NHANES, merged multi-cycle extract |
+| Cycles | SDDSRVYR 9 (2015-16), 10 (2017-20), 12 (2021-23) |
+| Rows | 15,244 adults |
+| Columns | 28 after merge |
+| Positives | 2,696 (17.69%) |
+| Duplicate SEQN | 0 |
+| Label | KDIGO-derived: CKD-EPI 2021 race-free eGFR < 60 OR urine ACR >= 30 |
+
+### Label audit
+- 11 columns that encode the label (creatinine, eGFR, urine albumin, urine creatinine,
+  ACR, ...) are quarantined and never used as inputs.
+- Circularity probe: a model trained on those columns reaches 0.8201 AUC; the recorded
+  limit is 0.99, so the label is not trivially recoverable from the allowed features.
+- Independent cross-check against an external labeled dataset: 9,901 shared SEQN,
+  **1 disagreement, 99.9899% agreement** (SEQN 98699).
+
+### Retired dataset
+The earlier UCI "Chronic Kidney Disease" CSV (400 rows: 279/40/81 split) is still in
+`data/raw/` and still served by the legacy v1 slot at v9, but it is no longer the model
+under discussion. Its perfect metrics were an artefact of a tiny curated cohort.
 
 ---
 
-## SECTION 34 — FINAL CONSISTENCY AUDIT
+## SECTION 5 - DATA PIPELINE
 
-- **Dataset:** 400 / 250 / 150 / 24+target+id consistent across code, store, docs. UCI-857: 200 / 128 / 72 consistent.
-- **Preprocessing:** split-first narrative consistent; 24 features consistent (config 14+10, transformed 24, loader 24, schema 24).
-- **Models:** 9 configs consistent (code dicts, 9 runs, metrics table); winner mlp-relu v9 consistent; metrics match store queries.
-- **MLflow:** 9 runs, v1–v9, v9 Production consistent across store, API, UAT.
-- **API:** 4 endpoints, version behavior, batch semantics consistent with `app.py` read.
-- **Database:** schema fields consistent with `db.py` read.
-- **Testing:** 19+4+5+5+1+5+6 = 45; lineage 16→26→45; must-haves 14/6/14 — no double counting.
-- **Phases:** 1 COMPLETED, 2–3 IMPLEMENTED/UAT-PENDING, 4–6 PLANNED — roadmap/STATE/dossier agree.
-- **Future:** drift/retraining/M2 never presented as built in this file.
+```
+NHANES XPT (CDC) -> ingestion -> quirk normalisation -> merged multi-cycle CSV
+      -> GX-style fail-closed gate (row bounds, duplicate SEQN, label sanity)
+      -> portable-23 projection (label-source columns dropped)
+      -> forward split: cycle 12 held out whole
+      -> ColumnTransformer fit on dev only
+      -> estimator -> MLflow run (params, metrics, pipeline, model)
+```
 
-## UNRESOLVED PROJECT FACTS
-- Claims 1 & 3 texts (never shared — excluded from all claim tables).
-- UCI-336 clinician/institution names (provenance asserted, names not in context).
-- Exact Phase 4–6 dates (not scheduled).
+Gate behaviour: a cohort that fails bounds or contains duplicate SEQN aborts the run.
+The gate attestation is logged as the `quarantine_attested=true` tag on each run.
 
 ---
 
-## SECTION 35 — PPT-SAFE FACTS VS UNSAFE CLAIMS
+## SECTION 6 - DATA SPLITTING & LEAKAGE PREVENTION
 
-## PPT-SAFE FACTS
-Everything in Sections 4–18 with VERIFIED/ESTABLISHED marking: row counts, splits, configs, metrics, versions, endpoints, schema, test counts, forensic rejections, review counts.
+| Decision | Choice | Why |
+|---|---|---|
+| Split type | Forward (whole cycle out) | Random splitting on pools of cycles leaks future rows of the same cycle into training |
+| Holdout | SDDSRVYR 12, 5,343 rows, never fitted | Makes the reported metric a real generalisation number |
+| Dev set | Cycles 9 + 10, 9,901 rows | Enough for 5-fold CV and threshold tuning |
+| Threshold tuning | Out-of-fold dev probabilities only | Never optimised on the holdout |
+| Preprocessing | Fitted inside the dev fold only | No imputer or scaler sees holdout statistics |
+| Burned split | Cycle 12 retired from tuning after use | Re-tuning against it would turn it into a second dev set |
 
-## DO NOT CLAIM WITHOUT ADDITIONAL EVIDENCE
-Clinical deployment or diagnostic use; real-world accuracy beyond the 81-row test set; production-scale reliability; automatic retraining or monitoring (PLANNED); automated promotion (human-gated); security certifications, auth, or encryption; external validation performed (reserved, not run); generalization beyond UCI cohorts; Streamlit as production frontend (prototype by design); any capability of Claims 1/3.
+**A real defect this caught.** An earlier version reported holdout ROC 0.83. It was scoring
+unseen rows of the same cycle it was fitted on. Fixing the split dropped the honest number
+to 0.8214. That correction is part of the project's story, not a footnote to hide.
 
 ---
 
-## SECTION 36 — FINAL EXECUTIVE SUMMARY
+## SECTION 7 - PREPROCESSING
 
-1. **What is CORVUS?** A six-phase MLOps platform (3 built) taking CKD prediction from raw clinical CSV to a versioned containerized service.
-2. **What problem?** Academic ML stops at training; deployed models need validation, versioning, serving, logging, monitoring, retraining.
-3. **Actually implemented?** Leak-safe pipeline; 9 tracked configs; registry lifecycle to Production; versioned API + Postgres logging + Compose + Streamlit UI.
-4. **Evidence?** 45/45 tests; 34/34 plan must-haves; live MLflow store (9 runs, v9 Production); live container smoke (200s, DB row, clean down); 0-critical reviews.
-5. **Why engineering, not a notebook?** Gates that fail closed, artifacts over assertions, versions over files, audit logs over printouts — every claim executable.
-6. **Unfinished?** 2 UAT eyeball checks; CI/CD, monitoring, drift, retraining, visualization; vetted big-cohort retrain; M2 care platform.
-7. **Evolution?** Data-track retrain on a provenanced cohort → observe it (Phase 4) → self-heal it (Phase 5) → polish (Phase 6) → serve patients and doctors (M2).
+| Step | Applied to | Detail |
+|---|---|---|
+| Median imputation | 20 numeric fields | Skewed labs; median is stable against the tail |
+| Most-frequent imputation | 3 categorical fields | `RIAGENDR`, `DMDEDUC2`, `DIQ010` |
+| StandardScaler | numeric block | Not strictly needed by trees, kept so linear baselines are comparable on one pipeline |
+| OneHotEncoder (`handle_unknown="ignore"`) | categorical block | An unseen code degrades to all-zeros instead of raising |
+| Output width | **36 features** | API asserts this equals `n_features_in_` at startup |
+
+The API accepts a categorical as `null` ("not recorded") and imputes it. A key that is
+simply missing from the JSON is a client bug and still returns 422; an out-of-vocabulary
+code also returns 422 rather than being silently coerced.
+
+---
+
+## SECTION 8 - FEATURES
+
+Portable-23 contract: chosen so the same model can run on non-US data later.
+
+| Block | Count | Fields |
+|---|---|---|
+| Kidney function markers | 9 | serum creatinine, urea nitrogen, uric acid, sodium, potassium, calcium, phosphorus, albumin, ALT |
+| Hematology | 5 | haemoglobin, haematocrit, WBC, RBC, RDW |
+| Glycaemia | 1 | HbA1c |
+| Anthropometric / BP | 3 | BMI, systolic BP, diastolic BP |
+| Demographics | 2 | age, poverty-income ratio |
+| Categorical | 3 | sex, education, diabetes status |
+
+**Dropped deliberately:** `RIDRETH1` (US race categories) and `MCQ035` (US-only kidney
+history item, 81.6% missing). Measured cost of dropping both: dev dROC -0.0015,
+holdout dROC -0.0031 - inside noise. This is what makes the contract portable.
+
+---
+
+## SECTION 9 - MACHINE LEARNING MODELS
+
+Six runs in experiment `corvus-ckd-nhanes`, all on the same forward split and the same
+preprocessing:
+
+| Run suffix | Model | Notes |
+|---|---|---|
+| `763555` | Logistic Regression | linear baseline, v10 |
+| `5954f0` | Gradient Boosting (`log_loss`, depth 3, 100 trees) | v11 |
+| `7889e8` | Gradient Boosting variant | v12 |
+| `ba51e2` | Gradient Boosting variant | v13 |
+| `2d5ad4` | Random Forest | v14 - highest ROC, lower PR-AUC |
+| `30830a` | Gradient Boosting (`log_loss`, depth 3, 100 trees, seed 42) | **v15, champion** |
+
+Why no neural net: on 9.9k dev rows with mostly tabular labs, boosted trees matched the
+linear model within noise, and a small MLP added tuning burden without evidence of gain.
+The earlier UCI phase did compare six classical models and three MLP variants; that
+comparison is history, not the current selection rationale.
+
+---
+
+## SECTION 10 - EXPERIMENTATION AND RESULTS
+
+### v15 on the blind held-out cycle (5,343 rows)
+
+| Metric | Value |
+|---|---|
+| ROC-AUC | **0.8214** (95% bootstrap CI 0.8062 - 0.8362) |
+| PR-AUC (primary) | **0.5895** |
+| Brier score | 0.1042 |
+| 5-fold CV AUC on dev | 0.8205 +/- 0.0120 |
+| Deployed threshold | **0.10256** (chosen on out-of-fold dev for 80% recall) |
+| Precision at deployed threshold | 0.3239 |
+| Recall at deployed threshold | 0.8378 |
+| F1 at deployed threshold | 0.4671 |
+| Accuracy at deployed threshold | 0.6691 |
+| Precision / recall at the naive 0.50 cut | 0.7140 / 0.3589 |
+
+**Read this table the right way.** At 0.50 the model is precise and misses two thirds of
+cases - useless for screening. At 0.10256 it catches 84% of cases and is wrong on two of
+every three flags. That trade is a clinical decision, not a modelling accident, which is
+why the threshold is a versioned artefact of the run rather than a constant in the code.
+
+**Why accuracy is never the headline.** A "nobody has CKD" predictor scores 82.3% here.
+Quoting 0.6691 accuracy at our operating point without the recall context would make the
+model look worse than the do-nothing baseline while being far more useful.
+
+**Selection rule.** PR-AUC first, then ROC-AUC, then the recall constraint. v14 (random
+forest) had the best ROC (0.8313) but a lower PR-AUC (0.5628) - the wrong shape for an
+imbalanced screening task - so v15 was served.
+
+---
+
+## SECTION 11 - MLFLOW
+
+- Tracking store: file store (`mlruns/`), mirrored into the containers as
+  `docker/.mlruns.container/` so MLflow, the API and CI resolve the same artifacts.
+- Experiments: `corvus-ckd` (legacy UCI, 9 runs) and `corvus-ckd-nhanes` (6 runs).
+- Every run logs: params (full estimator spec), 15 metrics, the fitted `Pipeline`, the
+  estimator, an input signature, plus the git commit and source file as tags.
+- Stage transitions are real: v15 sits in **Production**; every superseded version is
+  **Archived** (verified live, 2026-11-10).
+
+## CLAIM 2 - PIPELINE AND MODEL TRAVEL TOGETHER
+Each run stores the `ColumnTransformer` pipeline and the estimator in the same run, so
+serving resolves one `run_id` and gets both halves. `api/model_loader.py` then asserts the
+pipeline's output width equals the estimator's `n_features_in_` (36) before the service
+accepts traffic - a width mismatch is a startup failure, not a bad prediction.
+
+---
+
+## SECTION 12 - MODEL SELECTION AND LIFECYCLE
+
+```
+train -> MLflow run (params + metrics + pipeline + model)
+      -> registry version (corvus-ckd v10..v15)
+      -> challenger evaluated on the forward holdout
+      -> human promotion (scripts/promote_challenger.py / promote_production.py)
+      -> serving pin (config: api.v2_pinned_version = "15")
+      -> superseded version archived
+```
+
+- Promotion is a human decision. Nothing auto-deploys to the serving slot.
+- The pin is configuration, not a database stage read, so a registry label cannot silently
+  change what answers requests.
+- Rollback is a one-line config change plus an API restart; history stays attributable
+  because old rows still carry their own `model_version`.
+
+---
+
+## SECTION 13 - FASTAPI SERVICE
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/v2/predict` | NHANES-native single prediction (bearer JWT) |
+| POST | `/v2/batch_predict` | All-or-nothing batch, per-row errors (bearer JWT) |
+| GET | `/v2/model_info` | Served v2 model identity (`15`, run id, resolution) |
+| POST | `/predict`, `/batch_predict` | Legacy UCI v1 slot, pinned v9 |
+| GET | `/model_info`, `/health`, `/metrics` | Legacy identity, readiness, Prometheus scrape |
+| POST | `/auth/register`, `/auth/login` | Account creation and JWT issue (login throttled) |
+| GET | `/auth/me`, `/auth/profile`, `POST /auth/profile` | Identity and clinical profile |
+| GET | `/auth/predictions`, `/auth/predictions/{id}` | Server-side prediction history |
+| GET/POST | `/doctors/patients`, `/doctors/patients/assign` | Doctor-to-patient mapping |
+| GET | `/api/v1/models`, `/{version}/details`, `/compare` | Registry browsing |
+| POST | `/api/v1/models/promote` | Promotion endpoint |
+
+- Validation is Pydantic v2: 20 numeric keys required (may be `null`), 3 categorical keys
+  required (may be `null`), out-of-vocabulary codes rejected.
+- Failure modes are explicit: 401 unauthenticated, 422 schema, 503 database unavailable,
+  500 without a stack trace in the body.
+- Logging fails closed: if the prediction row cannot be written, the caller gets 500 rather
+  than an unattributable answer.
+
+---
+
+## SECTION 14 - PREDICTION VERSIONING (CLAIM 4)
+
+`POST /v2/predict` returns `{"prediction": 0, "probability": 0.0588, "model_version": "15"}`
+and the same version string is stored on the `predictions_v2` row. Verified live
+2026-11-10 with a 23-key payload (age 58, BMI 27.4, sex 1): probability 0.058789,
+decision 0 against the 0.10256 cut, row id 2 for that user, `model_version` `"15"`.
+
+Chain: prediction -> `model_version` -> registry version -> `run_id` -> exact pipeline,
+estimator and params. Any historical prediction re-resolves to the model that made it.
+
+---
+
+## SECTION 15 - POSTGRESQL
+
+- PostgreSQL 16 in Compose, database `corvus`, health-gated before the API starts.
+- Tables: `users`, profiles, doctor-patient mapping, `predictions` (v1), `predictions_v2`
+  (native, 23-field aware).
+- Alembic owns the auth/profile tables (`0001`-`0003`). The two prediction tables are
+  created by SQLAlchemy `create_all` - a documented deviation, chosen because their shape
+  changes with the model contract. Consequence, learned the hard way: `create_all` never
+  alters an existing table, so a nullability change needs an explicit drop and recreate.
+- Users, profiles and predictions are joined by `user_id`; history is served from the
+  database, so clearing the browser does not erase the audit trail.
+
+---
+
+## SECTION 16 - FRONTEND
+
+React 19 + Vite 8 + Tailwind 3 + React Router 7, served by nginx on port 3000, 11 pages.
+
+| Page | Role |
+|---|---|
+| Clinical login / register | Role select (patient, doctor), JWT stored client-side |
+| Assessment dashboard | The NHANES form, grouped by clinical section, posts to `/v2/predict` |
+| Result card | Probability, decision, cut-off, `model_version` - the version is visible to the user |
+| Prediction history | Server-side list with model version per row |
+| Models / model comparison | Registry versions, metrics per version, promotion view |
+| Patient and doctor profiles, patient detail, assign patients | Clinical workflow scaffolding |
+
+Design decisions: the UI holds **zero model logic** - no thresholds, no feature engineering,
+no fallback scoring. A screening disclaimer is shown wherever a risk is displayed. Deep
+links work because nginx rewrites unknown paths to `index.html` (this was a real 404 bug,
+fixed with `docker/nginx.conf`).
+
+---
+
+## SECTION 17 - DOCKER AND DEPLOYMENT
+
+| Service | Port | Role |
+|---|---|---|
+| `frontend` | 3000 | nginx serving the React build, SPA fallback |
+| `api` | 8000 | FastAPI + uvicorn, model pinned at startup |
+| `db` | 5432 | PostgreSQL 16 with healthcheck |
+| `mlflow` | 5000 | Tracking UI and registry API |
+| `prometheus` | 9090 | Scrape + rule evaluation |
+| `grafana` | 3001 | Dashboards (host 3001 to avoid a local conflict) |
+| `alertmanager` | 9093 | Alert routing |
+| `airflow` | 8080 | Standalone scheduler/webserver for the retrain DAG |
+| `node-exporter` / `postgres-exporter` | 9100 / 9187 | Host and database telemetry |
+
+`docker compose -f docker/docker-compose.yml up -d` brings the whole platform up.
+`api/` and `src/` are bind-mounted read-only, so code changes apply on `restart api`
+without a rebuild; the frontend needs an image rebuild because Vite output is baked in.
+
+---
+
+## SECTION 18 - TESTING
+
+| Layer | Count | What it proves |
+|---|---|---|
+| pytest: API contract | 17 in `tests/test_api_v2.py` | 23-field contract, null categoricals imputed, missing key 422, bad literal 422, auth 401, logging round trip |
+| pytest: data and label | golden re-derivation test | The cohort and its labels rebuild byte-for-byte |
+| pytest: model and pipeline | metric, threshold, artifact tests | Threshold tuning, width assertion, registry helpers |
+| pytest: integrations | drift, promote, auth, metrics | Each plugin behaves and fails closed |
+| Full suite | **150 passed, 2 skipped** (210 s) | Regression floor |
+| Playwright E2E | **5 passed** | Login page, wrong-credential rejection, registration, a real `/v2/predict` round trip appearing in history with v15, models page showing the pinned version |
+| CI | GitHub Actions green on `main` | Lint, tests, and the ASCII constraint on `train_nhanes.py` |
+
+The E2E suite is the layer that found real defects: a missing SPA fallback, coded
+categoricals sent as strings, a reload that silently logged the user out, and NOT NULL
+columns that predated nullable categoricals. Each was fixed with a test pinning it.
+
+---
+
+## SECTION 19 - FORMAL PROJECT CLAIMS
+
+| Claim | Statement | Evidence |
+|---|---|---|
+| 1 | Labels are derived deterministically from KDIGO criteria, not chart review | Label builder + golden test; 99.9899% agreement with an external labelled set |
+| 2 | The preprocessing pipeline and the estimator are versioned together | Same MLflow run holds both; startup width assertion |
+| 3 | Evaluation is on a cohort the model never saw | Whole SDDSRVYR cycle held out; no threshold tuning on it |
+| 4 | Every prediction is attributable to a model version | Response field, DB column, registry chain - verified live |
+| 5 | Retraining is triggered by evidence, not a calendar alone | Five independent triggers in `corvus_drift_retrain` |
+
+---
+
+## SECTION 20 - PHASE HISTORY (honest)
+
+| Phase | What happened |
+|---|---|
+| 1. Data pipeline | UCI cohort first (400 rows), reproducible ingestion, fail-closed gate |
+| 2. Training + MLflow | 9 configs, registry v1-v9, MLP-ReLU champion on a tiny cohort - metrics saturated at 1.000 |
+| 3. API + containers | FastAPI, Postgres logging, Compose stack, Streamlit UI |
+| 4. CI + monitoring | GitHub Actions, `/metrics`, Prometheus, Grafana, alert rules |
+| 5. Airflow + drift | Five retrain triggers, Evidently drift report path, promotion scripts |
+| 6. Rebuild on NHANES | Real cohort, forward split, portable-23 contract, honest 0.82 |
+| 7. Native retrain | v10-v15 challengers, PR-AUC selection, threshold artefact |
+| 8. React console + auth | 11 pages, JWT, roles, profiles, server-side history |
+| 9. Stabilisation | E2E suite, SPA fallback fix, nullability fix, registry stages aligned to serving |
+
+The single most valuable event in that list is the moment the 1.000 metrics were abandoned.
+
+---
+
+## SECTION 21 - DRIFT DETECTION AND RETRAINING
+
+Built, not merely planned:
+
+- `src/monitoring/` builds an Evidently data-drift report from a baseline (training
+  reference) against incoming production features.
+- `airflow/dags/corvus_drift_retrain.py` fires a retrain if **any** of five conditions
+  holds: champion older than `schedule_days` (30), drifted-feature share above
+  `drift_threshold` (0.3), more than `min_new_rows` (500) unabsorbed production rows,
+  labelled-batch ROC-AUC below `roc_floor` (0.80), or a manual trigger.
+- A retrain produces a challenger, scores it on the forward holdout, and
+  `scripts/promote_challenger.py` promotes only on a genuine improvement.
+- Honest limit: with a demo traffic level, the drift trigger has never fired on real
+  production drift. The mechanism is exercised, the clinical signal is not.
+
+---
+
+## SECTION 22 - CI/CD AND MONITORING
+
+- CI: lint, full pytest, and a guard that keeps `src/training/train_nhanes.py` pure ASCII
+  with no recorded UCI AUC reference. No image publishing - the demo is local-first.
+- Metrics: `/metrics` exports `corvus_predictions_total{model_version=...}`, request
+  counts and latency histograms.
+- Prometheus scrapes three jobs: the API, node-exporter, postgres-exporter. The MLflow job
+  was removed because MLflow 3 dropped `/metrics` - a permanently-down target is worse than
+  no target.
+- Seven alert rules: `APIDown`, `APIHighErrorRate`, `APIHighLatency`, `HighPredictionVolume`,
+  `LowPredictionProbability`, `DatabaseConnectionsHigh`, `NoNewUsers`.
+- Grafana dashboard is provisioned from `docker/grafana/`, with Prometheus as the default
+  datasource.
+
+---
+
+## SECTION 23 - COMPLETE ARCHITECTURE
+
+```
+                +---------------------------+
+  Browser  ---> | React console (nginx:3000)| ---> /v2/predict (JWT)
+                +---------------------------+
+                            |
+                            v
+                +---------------------------+        +----------------+
+                | FastAPI (uvicorn:8000)    | -----> | PostgreSQL 16  |
+                | pinned corvus-ckd v15     |        | users, logs    |
+                +---------------------------+        +----------------+
+                     |            |
+        /metrics     |            | mlflow.load_model(run_id)
+                     v            v
+        +----------------+   +--------------------------+
+        | Prometheus     |   | MLflow 3 file store      |
+        | + Alertmanager |   | experiments + registry   |
+        | + Grafana      |   +--------------------------+
+        +----------------+              ^
+                                        | run logging
+                            +--------------------------+
+                            | train_nhanes.py (Airflow)|
+                            | drift -> retrain -> gate |
+                            +--------------------------+
+```
+
+---
+
+## SECTION 24 - ENGINEERING PRACTICES
+
+- Fail-closed everywhere it matters: the data gate, prediction logging, model width check,
+  missing `SECRET_KEY` at boot.
+- Contract tests before behaviour: schema changes come with a test that pins 422 vs 200.
+- Honest metrics: PR-AUC primary, confidence intervals, threshold stated, accuracy demoted.
+- Reproducibility: seeded estimators, git commit tags on runs, golden data test.
+- Deviation log: `create_all` instead of migrations for prediction tables, no Alembic
+  `0004` - written down with its consequence rather than left as a surprise.
+
+---
+
+## SECTION 25 - IMPORTANT TECHNICAL DECISIONS
+
+| Decision | Alternative rejected | Why |
+|---|---|---|
+| Move to a 15k-row NHANES cohort | Keep polishing the 400-row UCI set | Perfect metrics on a curated set prove nothing |
+| Forward split on whole cycles | Stratified random split | Random splitting leaks same-cycle rows into training |
+| PR-AUC as the selection metric | ROC-AUC alone | ROC flatters models on a 17.7% positive class |
+| Recall-tuned threshold artefact | Fixed 0.50 | 0.50 misses two thirds of true cases |
+| Portable-23 feature contract | Keep every NHANES column | US-only fields block any non-US deployment |
+| Registry version pinned in config | Load "whatever is Production" | A label change must not silently change answers |
+| Two serving slots (v1, v2) | Rewrite the v1 contract in place | Keeps the old demo working while the real model ships |
+| Screening framing | Diagnostic framing | Precision 0.32 cannot support a diagnosis claim |
+
+---
+
+## SECTION 26 - LIMITATIONS (state these plainly)
+
+1. **Precision 0.324.** Two of three flags are false positives at the operating point. The
+   design accepts that to catch 84% of cases - but it is a screening aid, never a diagnosis.
+2. **US cohort only.** NHANES is a US sample; transfer to Indian patients is unproven until
+   ICKD data arrives.
+3. **Unweighted.** Survey weights are deliberately not applied, so prevalence in the sample
+   is not a population prevalence estimate.
+4. **Single-measure labels.** KDIGO requires persistence over 3 months; a single eGFR/ACR
+   reading is a proxy, so some labels are noise.
+5. **Feature completeness.** Albumin, uric acid, ALT and RDW are strong contributors, so a
+   deployment without those tests loses accuracy.
+6. **Drift unproven in production.** The mechanism is built; there is no real traffic yet.
+7. **Demo security.** No email verification, no password reset, no refresh-token rotation.
+
+---
+
+## SECTION 27 - FUTURE SCOPE
+
+- External validation on Indian (ICKD) data, then a recalibration pass rather than a retrain.
+- Calibration work: the Brier score of 0.1042 can be improved with isotonic calibration on
+  the dev set, which would make the probabilities directly usable in cost models.
+- Clinician-in-the-loop feedback capture, so precision at the operating point becomes a
+  measured number rather than a held-out estimate.
+- Survival framing (time to progression) instead of binary screening.
+
+---
+
+## SECTION 28 - FIGURES AND SCREENSHOTS
+
+Captured into `docs/screenshots/` from the running stack:
+
+| # | Figure | Source | What it proves |
+|---|---|---|---|
+| 1 | Clinical login | `localhost:3000/login` | Two portals, role selection |
+| 2 | Assessment dashboard with result | `localhost:3000/dashboard` | Real `/v2/predict` answer, cut-off, `model_version: 15` |
+| 3 | Prediction history | `localhost:3000/history` | Server-side rows, v15 stamped |
+| 4 | Models page | `localhost:3000/models` | Pinned serving version, registry view |
+| 5 | Grafana dashboard | `localhost:3001` | Live scrape, prediction counters |
+
+Additional live-provable items: MLflow experiment table (6 NHANES runs with metrics),
+registry stage column (v15 Production, v1-v14 Archived), Prometheus targets page (3 up),
+pytest tail (150 passed), Playwright output (5 passed).
+
+---
+
+## SECTION 29 - EXAMINER / VIVA QUESTIONS
+
+**Q: Why is your ROC-AUC only 0.82 when student projects report 0.99?**
+A: Because the cohort is real. The 0.99 projects train and test on 300 curated rows from
+one small dataset. Corvus evaluates on an entire NHANES cycle it never saw, and the
+positive class is 17.7%, not 50%.
+
+**Q: Why gradient boosting and not deep learning?**
+A: Tabular labs with mostly monotone relationships: boosted trees capture interactions with
+far less tuning. On the dev set the linear baseline was within noise; a small MLP added
+cost, not accuracy evidence.
+
+**Q: Why is recall 0.84 but precision 0.32 - is that not a bad model?**
+A: It is a deliberate operating point for screening. A false positive costs one confirmatory
+test; a false negative costs a missed diagnosis. The 0.50 cut gives 0.71 precision but
+misses two thirds of cases.
+
+**Q: How do you know the split is clean?**
+A: The holdout is an entire survey cycle, excluded from training, threshold tuning and
+feature selection. An earlier version scored unseen rows of a cycle it had partly fitted on
+and reported 0.83 - fixing that produced the current 0.8214.
+
+**Q: What happens when a prediction cannot be logged?**
+A: The API returns 500. A risk figure nobody can attribute is not served.
+
+**Q: How would a different model version be rolled out?**
+A: Promote the version, change `api.v2_pinned_version`, restart the API. Old rows keep
+their own version string, so the audit trail stays intact.
+
+**Q: What is not finished?**
+A: Drift on real traffic, email verification and password reset, and external validation on
+Indian data.
+
+---
+
+## SECTION 30 - TEAM CONTRIBUTION
+
+Fill with the actual split before presenting. Suggested framing, if the work was solo:
+data build and label audit; modelling, thresholding and registry; API, database and auth;
+React console; containers and observability; test suites and documentation.
+
+---
+
+## SECTION 31 - FINAL 12-14 SLIDE STORYLINE
+
+| Slide | Title | Content |
+|---|---|---|
+| 1 | Corvus | CKD screening from routine labs; one-line problem |
+| 2 | The problem | Silent disease, cheap tests already ordered, no consistent risk scoring |
+| 3 | Why existing demos fail | 400-row curated sets, 1.000 metrics, no versioning |
+| 4 | Data | Three NHANES cycles, 15,244 adults, 2,696 positives, deterministic KDIGO labels |
+| 5 | Leakage discipline | Forward split, whole cycle held out, the 0.83 -> 0.82 correction |
+| 6 | Features | Portable-23 contract; what was dropped and what it cost |
+| 7 | Model | Depth-3 gradient boosting, why not deep learning |
+| 8 | Results | ROC 0.8214, PR-AUC 0.5895, table at deployed and 0.50 thresholds |
+| 9 | The threshold is clinical | Recall 0.84 vs precision 0.32, stated openly |
+| 10 | Versioning | Registry v10-v15, v15 Production, version on every answer |
+| 11 | Platform | FastAPI + Postgres + React + Compose, screenshots |
+| 12 | Operations | Prometheus, 7 alerts, Grafana, five retrain triggers |
+| 13 | Quality | 150 pytest, 5 E2E, CI green - and the four real bugs E2E found |
+| 14 | Limits and next | Precision, US-only cohort, ICKD validation, calibration |
+
+---
+
+## SECTION 32 - FIVE CORE PROJECT SENTENCES
+
+1. Corvus turns a routine blood and urine panel into a CKD risk score a clinician can act on
+   and an auditor can trace.
+2. Its labels are derived deterministically from KDIGO criteria and independently
+   cross-checked at 99.99% agreement.
+3. It is evaluated on an entire NHANES cycle it never saw, scoring ROC-AUC 0.8214 and
+   PR-AUC 0.5895 - numbers that are honest rather than flattering.
+4. It operates at a recall-tuned threshold of 0.10256, catching 84% of cases as a screening
+   tool with a stated precision cost.
+5. Every prediction carries the exact registry version that produced it, all the way into
+   PostgreSQL.
+
+---
+
+## SECTION 33 - PROJECT FACT SHEET
+
+| Field | Value |
+|---|---|
+| Dataset | NHANES 2015-16, 2017-20, 2021-23 |
+| Rows / positives | 15,244 / 2,696 (17.69%) |
+| Holdout | Cycle 12 (2021-23), 5,343 rows |
+| Features in | 20 numeric + 3 categorical (23) |
+| Pipeline width | 36 |
+| Model | GradientBoostingClassifier, log_loss, depth 3, 100 trees, seed 42 |
+| Served version | `corvus-ckd` v15, run `30830a71...` |
+| Holdout ROC / PR-AUC | 0.8214 / 0.5895 |
+| Precision / recall at operating point | 0.3239 / 0.8378 |
+| Threshold | 0.10256 |
+| Registry | v1-v9 legacy UCI archived, v10-v15 native, v15 Production |
+| API | 22 routes, dual serving slots, JWT auth |
+| Frontend | React 19, 11 pages, nginx |
+| Observability | 3 scrape targets, 7 alert rules, 1 provisioned dashboard |
+| Retraining | Airflow DAG, 5 triggers |
+| Tests | 150 pytest passed / 2 skipped, 5 Playwright E2E passed |
+
+---
+
+## SECTION 34 - FINAL CONSISTENCY AUDIT
+
+Verified on 2026-11-10 against the running stack:
+
+- `/v2/model_info` -> version `15`, run `30830a7152394ff2a63ea1005da9f035`,
+  `resolution: pinned-at-startup`.
+- `POST /v2/predict` with a 23-key payload -> 200, probability 0.058789, `model_version`
+  `"15"`; the row appears in `GET /auth/predictions` with the same version.
+- MLflow registry: 15 versions; v15 in Production, all others Archived.
+- Prometheus: 3/3 targets up; 7 alert rules loaded.
+- Grafana: healthy, dashboard provisioned, Prometheus default datasource.
+- pytest: 150 passed, 2 skipped. Playwright: 5 passed.
+
+Anything in this document that conflicts with those six checks is wrong - the stack wins.
+
+---
+
+## SECTION 35 - SAFE FACTS VS UNSAFE CLAIMS
+
+**Safe to say**
+- "ROC-AUC 0.8214 on a held-out NHANES cycle" (quote the cohort).
+- "Screening tool with a recall-tuned threshold."
+- "Versioned, attributable predictions."
+- "150 tests and an E2E suite that found four real defects."
+- "Retraining triggers are implemented."
+
+**Do not claim without extra evidence**
+- Any accuracy above 0.85 as a headline (0.6691 at the operating point; 0.82 prevalence
+  baseline makes accuracy meaningless).
+- "Diagnoses CKD." It scores risk.
+- "Works on Indian patients." Untested; ICKD data pending.
+- "Deployed to production users." The demo is local Compose.
+- "Drift detection validated." The mechanism exists; production drift has not occurred.
+- Any 1.000 metric. Those were the retired UCI proof of concept.
+
+---
+
+## SECTION 36 - FINAL EXECUTIVE SUMMARY
+
+Corvus is a complete CKD screening platform: a reproducible multi-cycle cohort, a
+deterministic KDIGO label with quarantine discipline, a portably-scoped feature contract, a
+tracked and versioned gradient-boosting model, a versioned API with authentication, a React
+console, and the operational layer - metrics, alerts, dashboards, retraining triggers -
+that separates a demo from a system. The model is deliberately not oversold: 0.8214 ROC-AUC
+and 0.5895 PR-AUC on data it never saw, served at a threshold that catches 84% of cases as a
+screening aid. Its weakest number, precision 0.324, is printed next to its strongest one
+everywhere it appears, because that is the number a clinician has to live with. The next
+real improvement is not a better estimator; it is Indian patient data.

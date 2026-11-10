@@ -1,8 +1,8 @@
 creation_timestamp: 1793599345244
-current_stage: None
+current_stage: Production
 deployment_job_state: null
 description: null
-last_updated_timestamp: 1793599345244
+last_updated_timestamp: 1794283683352
 model_id: m-9f98463637634bc2acb35102d79c09e0
 name: corvus-ckd
 run_id: 30830a7152394ff2a63ea1005da9f035

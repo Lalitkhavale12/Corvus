@@ -1,8 +1,28 @@
 # Corvus — Final Project Structure & Development Guide
 
+> **HISTORICAL PLAN — DO NOT READ AS CURRENT STATUS (annotated 2026-11-10).**
+>
+> This document is the development plan as written at the end of Phase 1. It is kept
+> because it records the reasoning behind the phase split and the patent-claim mapping.
+> It is **not** a description of the system as built. For the as-built state read
+> `docs/ppt.md` (technical dossier, v15, verified) and `docs/report.md` (status).
+>
+> Where this file disagrees with the code, the code wins. The known deltas:
+>
+> | Planned here | Actually built |
+> |---|---|
+> | Streamlit frontend | React 19 + Vite + nginx, 11 pages |
+> | 4 tests | 150 pytest passed / 2 skipped, plus 5 Playwright E2E |
+> | Great Expectations validation | In-house fail-closed gate (row bounds, duplicate SEQN, label sanity) |
+> | LR / RF / XGBoost / LightGBM / MLP comparison | GradBoost / RF / LogReg, six runs; boosters won, no XGB/LGBM/MLP in the served model |
+> | 400-row UCI cohort | 15,244-row NHANES cohort, whole-cycle holdout |
+> | Claim 4 not built | Built: `model_version` on every response and every DB row |
+> | Component 102 not built | `src/visualization/` exists, feeds figures; no standalone product |
+> | CI "test -> build -> push" | CI is a real test/lint gate; no image publishing |
+
 **Timeline: 4–6 weeks (1–1.5 months)**
-**Status: Phase 1 complete — data pipeline built, tested, and refactored for
-patent-claim compliance and leakage safety.**
+**Status at the time of writing: Phase 1 complete — data pipeline built, tested, and
+refactored for patent-claim compliance and leakage safety.**
 
 This supersedes the earlier development plan. Same overall approach and
 timeline; this version folds in everything found during the goals/patent/
@@ -56,10 +76,10 @@ listed as open below rather than assumed compliant.
 
 | Claim / Component | Requirement | Status | Where it lives |
 |---|---|---|---|
-| **Claim 2** | Fitted preprocessing pipeline stored as MLflow artifact, same run as model | ✅ **Pipeline object exists and is fitted correctly** (leak-safe). MLflow logging itself happens in Phase 2, when training code loads `preprocessing_pipeline.joblib` and calls `mlflow.log_artifact()` inside the training run. | `src/preprocessing/preprocess.py` |
-| **Claim 4** | Log deployed model version per prediction | ⬜ Not built (Phase 4) | Needs a `model_version` field in the prediction-log schema and DB table; FastAPI must resolve current production version from the MLflow Registry per request |
+| **Claim 2** | Fitted preprocessing pipeline stored as MLflow artifact, same run as model | ✅ **Built.** The `ColumnTransformer` pipeline and the estimator are logged in the same MLflow run; the API loads one `run_id` and asserts the pipeline width equals `n_features_in_` (36) at startup. | `src/preprocessing/preprocess.py`, `api/model_loader.py` |
+| **Claim 4** | Log deployed model version per prediction | ✅ **Built.** `model_version` is on every response (`/v2/predict` returns `"15"`), on the `predictions_v2` row, and resolvable to registry version -> `run_id`. | `api/app.py`, `api/db.py` |
 | **Claim 5** | 5 Airflow trigger types + champion/challenger promotion + archived retention | ✅ Built | `src/monitoring/retrain_triggers.py` (schedule, drift, performance, data volume, manual), `src/model_promotion.py:decide_promotion` (challenger must clear a 0.80 ROC-AUC floor and be no worse on ROC-AUC/PR-AUC), `airflow/dags/corvus_drift_retrain.py` (daily 02:00, branches on the verdict, retrains for real), `scripts/promote_production.py` (Production stage, previous versions archived) |
-| **Component 102** | Standalone data visualization module | ⬜ Not built | No `src/visualization/` yet — tracked below, not forgotten |
+| **Component 102** | Standalone data visualization module | 🟡 Partial | `src/visualization/` exists and generates the figures used in documentation; it is not a separate shipped product |
 | Claims 1, 3 | Unknown | ⬜ Not reviewed | Full claim text not yet shared |
 
 ### Backlog tied to phases (not built yet, by design)
