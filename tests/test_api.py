@@ -84,9 +84,16 @@ def test_predict_null_numeric_uses_imputer(synthetic_ckd_request, auth_client):
 
 
 def test_health_reports_model_version(auth_client):
+    # Both slots are reported so /health cannot be read as "the model is v9".
+    # Expected values mirror config/config.yaml: pinned_version (legacy v1)
+    # and v2_pinned_version (NHANES-native slot).
     resp = auth_client.get("/health")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok", "model_version": "9"}
+    assert resp.json() == {
+        "status": "ok",
+        "model_version": "9",
+        "model_version_v2": "15",
+    }
 
 
 def test_model_info_reports_pinned_version(auth_client):

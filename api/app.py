@@ -423,8 +423,12 @@ def batch_predict(
 
 @app.get("/health", response_model=HealthResponse)
 def health():
-    """Serve readiness plus the startup-pinned version."""
-    return HealthResponse(status="ok", model_version=app.state.model_version)
+    """Serve readiness plus the startup-pinned version of both slots."""
+    return HealthResponse(
+        status="ok",
+        model_version=app.state.model_version,
+        model_version_v2=getattr(app.state, "v2_model_version", ""),
+    )
 
 
 @app.get("/model_info", response_model=ModelInfoResponse)

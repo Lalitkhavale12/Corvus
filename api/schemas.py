@@ -112,10 +112,14 @@ class PredictionResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    """Serve readiness plus the pinned version."""
+    """Serve readiness plus the pinned versions of both serving slots."""
 
     status: str
+    # Legacy v1 slot (UCI 24-field /predict), kept for backward compatibility.
     model_version: str
+    # NHANES-native v2 slot; empty when no challenger is pinned, in which
+    # case every /v2 route fails closed with 503.
+    model_version_v2: str = ""
 
 
 class ModelInfoResponse(BaseModel):

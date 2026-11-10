@@ -12,6 +12,9 @@ data/processed/*
 !data/processed/.gitkeep
 data/nhanes/*.xpt
 data/nhanes/*.csv
+# The NHANES XPTs are ~40 MB and re-downloadable; the finished cohort CSV is
+# 2.3 MB, so it is committed and training is reproducible without them.
+!data/nhanes/nhanes_ckd_multi.csv
 # Third-party dataset received for cross-checking only (not ours to publish)
 data/Prof Data/
 mlruns/
@@ -25,6 +28,7 @@ reports/*
 # Env / secrets
 .env
 *.env
+!.env.example
 
 # OS / editor
 .DS_Store

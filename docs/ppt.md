@@ -311,7 +311,7 @@ train -> MLflow run (params + metrics + pipeline + model)
 | POST | `/v2/batch_predict` | All-or-nothing batch, per-row errors (bearer JWT) |
 | GET | `/v2/model_info` | Served v2 model identity (`15`, run id, resolution) |
 | POST | `/predict`, `/batch_predict` | Legacy UCI v1 slot, pinned v9 |
-| GET | `/model_info`, `/health`, `/metrics` | Legacy identity, readiness, Prometheus scrape |
+| GET | `/model_info`, `/health`, `/metrics` | Legacy identity, readiness (reports both pins), Prometheus scrape |
 | POST | `/auth/register`, `/auth/login` | Account creation and JWT issue (login throttled) |
 | GET | `/auth/me`, `/auth/profile`, `POST /auth/profile` | Identity and clinical profile |
 | GET | `/auth/predictions`, `/auth/predictions/{id}` | Server-side prediction history |
@@ -321,6 +321,11 @@ train -> MLflow run (params + metrics + pipeline + model)
 
 - Validation is Pydantic v2: 20 numeric keys required (may be `null`), 3 categorical keys
   required (may be `null`), out-of-vocabulary codes rejected.
+- Two slots run side by side, so `/health` reports both pins:
+  `{"status":"ok","model_version":"9","model_version_v2":"15"}`. The first is the
+  legacy v1 slot that `/predict` still serves; the second is the model the console and
+  every `/v2` route use. Reading only `model_version` would suggest the retired UCI
+  model is live, which it is not.
 - Failure modes are explicit: 401 unauthenticated, 422 schema, 503 database unavailable,
   500 without a stack trace in the body.
 - Logging fails closed: if the prediction row cannot be written, the caller gets 500 rather
