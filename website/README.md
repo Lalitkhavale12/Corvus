@@ -1,16 +1,22 @@
-# React + Vite
+# Corvus Clinical Console
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + Vite front end for the Corvus CKD screening API. Eleven pages: dashboard,
+assessment, result, prediction history, patient and doctor profiles, model comparison.
 
-Currently, two official plugins are available:
+## Running it
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+In normal use the SPA is served by nginx from Compose (port 3000) - see the root
+`README.md` for the full stack. For front-end work only:
 
-## React Compiler
+```bash
+npm install
+npm run dev     # http://localhost:5173
+npm run e2e     # Playwright, needs the Compose stack up
+npm run lint    # oxlint
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+`VITE_API_URL` (see `.env.example`) is baked in at build time and defaults to
+`http://localhost:8000`. The E2E specs in `e2e/` drive the real containers rather than
+a mock, so start the stack first or `npm run e2e` will fail at login.
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+Screening aid only, not a diagnosis.

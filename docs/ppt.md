@@ -1,6 +1,6 @@
 # CORVUS - Technical Project Dossier (for PPT generation)
 
-Status: current as of 2026-11-10, branch `main`, served model `corvus-ckd` **version 15**.
+Status: current as of 2026-11-11, branch `main`, served model `corvus-ckd` **version 15**.
 Every number below was read from the running stack, the MLflow store, or the repository -
 not recalled. Where something is planned rather than built, it says so.
 

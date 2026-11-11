@@ -32,7 +32,29 @@ features. Still open, unchanged: no email verification or password reset, no ext
 
 ---
 
-## 1. Overall: ~65% complete (as of 2026-11-03 - see the update above)
+## STATUS UPDATE - 2026-11-11 (repository readiness)
+
+Re-verified against the running stack, not recalled:
+
+| Then (2026-11-10) | Now (2026-11-11) |
+|---|---|
+| A clone needed secrets re-created by hand, and the training data was not in the repo | **`.env.example` + committed training CSV**; a clean clone builds and runs after one copy step |
+| `/health` reported the legacy slot only | Reports **both** slots (`9` and `15`); a test pins the exact payload |
+| Containers died with the previous session and stayed dead | `restart: unless-stopped` on all 10 services; crash restart proven (`kill -9 1` -> back in under 10 s) |
+| Tests: 150 passed / 2 skipped (211 s) | 150 passed / 2 skipped (148 s); the 2 skips are a local venv missing `evidently`, CI runs them |
+| A first run from a clean tree was never verified | Fresh-clone build verified; the running image ID matches the fresh build |
+
+Still open after this pass, ordered by value:
+
+1. `GET /auth/predictions` returns every row (`api/app.py:839-853`) - no `limit`/`offset`.
+2. `corvus_users_total` is a Gauge incremented at registration (`api/app.py:111`, `:679`) - it reads 0 after a restart while Postgres holds the users.
+3. Dashboard counters reset with the container, so Grafana is empty until the first prediction of a session.
+4. No drift alert exists; the Phase 5 mechanism still has no production signal to alert on.
+5. No coverage figure is measured anywhere - `pytest-cov` is not installed and CI does not run it.
+
+---
+
+## 1. Overall: ~65% complete (as of 2026-11-03 - see the updates above)
 
 | Phase | Status | Evidence |
 |---|---|---|

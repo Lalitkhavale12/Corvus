@@ -145,3 +145,18 @@
 ### Results
 - E2E found four real defects, each fixed with a test pinning it: missing SPA fallback; coded categoricals posted as strings plus four missing lab fields; a reload that silently logged the user out (profile 404 cleared the token); NOT NULL columns predating nullable categoricals
 - **5/5 E2E green** (11 s) · **150 passed / 2 skipped** in pytest (211 s) · CI green on `main`
+
+## Post-Phase 9 - Repository Hardening - Complete (2026-11-11)
+
+### What was done
+- `README.md` rewritten as the front door: verified quickstart (`cp .env.example .env` first), URL table, the two served slots, the 23-field native curl example, and the real limitations
+- `.env.example` added (`SECRET_KEY`, `DATABASE_URL`, `VITE_API_URL`), and `.gitignore` un-ignores it plus the 2.3 MB training CSV, so a clean clone can both train and run
+- `GET /health` now reports both pins (`model_version` = 9, `model_version_v2` = 15); `HealthResponse.model_version_v2` added and a test pins the exact payload
+- `restart: unless-stopped` on all 10 Compose services
+
+### Results
+- Fresh `git clone` proven end to end: `.env.example` and the CSV present, zero XPT leakage, `compose config -q` fails without `.env` (as documented) and passes after copying it, `build api` green in 163 s, and the running container image ID matches the fresh build
+- Crash-restart proven rather than assumed: `docker exec docker-frontend-1 sh -c "kill -9 1"` -> back in under 10 s. (`docker kill` does NOT prove it - that is a manual stop, and the policy correctly does not restart it.)
+- Reboot survivability depends on Docker Desktop starting at sign-in - untested, so the README states the consequence instead of claiming it
+- 150 passed / 2 skipped in pytest (148 s); the two skips are this machine's venv missing `evidently`, while CI installs `requirements.txt` and runs them. 5/5 Playwright E2E, CI green on `main` at `5f307e3`
+- Gaps re-verified, deliberately not fixed in this pass: `GET /auth/predictions` is unpaginated, `corvus_users_total` is a Gauge incremented per registration so it reads 0 after a restart, no production drift signal, no external cohort
