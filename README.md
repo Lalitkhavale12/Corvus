@@ -34,7 +34,9 @@ docker compose -f docker/docker-compose.yml up -d --build
 
 The API refuses to start without `SECRET_KEY`, which is why `.env` is a required
 step. First build takes a few minutes; afterwards the stack comes up in under a
-minute.
+minute. Every service is `restart: unless-stopped`, so after a reboot the stack
+returns on its own once Docker Desktop is running - a container that dies is
+also restarted, which matters on stage.
 
 | Service | URL | Notes |
 |---|---|---|

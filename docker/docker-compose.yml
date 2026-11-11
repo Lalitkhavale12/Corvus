@@ -24,6 +24,7 @@
 # accepted): real secrets never commit — .env stays gitignored.
 services:
   db:
+    restart: unless-stopped
     image: postgres:16
     environment:
       POSTGRES_USER: corvus
@@ -38,6 +39,7 @@ services:
       retries: 5
 
   api:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -64,6 +66,7 @@ services:
         condition: service_healthy
 
   mlflow:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -82,9 +85,11 @@ services:
   # names. Without them Prometheus reports 4 of 6 targets down and alerts.yml
   # has nowhere to fire, so the dashboard looks broken in a demo.
   node-exporter:
+    restart: unless-stopped
     image: prom/node-exporter:v1.8.1
 
   postgres-exporter:
+    restart: unless-stopped
     image: prometheuscommunity/postgres-exporter:v0.15.0
     environment:
       DATA_SOURCE_NAME: postgresql://corvus:corvus@db:5432/corvus?sslmode=disable
@@ -93,6 +98,7 @@ services:
         condition: service_healthy
 
   alertmanager:
+    restart: unless-stopped
     image: prom/alertmanager:v0.27.0
     ports:
       - "9093:9093"
@@ -104,6 +110,7 @@ services:
   # ponytail: SequentialExecutor/sqlite is demo-only; move to LocalExecutor +
   # the existing postgres for anything that has to survive a restart.
   airflow:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -138,6 +145,7 @@ services:
         condition: service_started
 
   frontend:
+    restart: unless-stopped
     build:
       context: ..
       dockerfile: docker/Dockerfile.frontend
@@ -150,6 +158,7 @@ services:
         condition: service_started
 
   prometheus:
+    restart: unless-stopped
     image: prom/prometheus:v2.50.0
     ports:
       - "9090:9090"
@@ -169,6 +178,7 @@ services:
         condition: service_started
 
   grafana:
+    restart: unless-stopped
     image: grafana/grafana:10.2.0
     ports:
       - "3001:3000"
