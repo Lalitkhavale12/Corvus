@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
+import jwt
 import bcrypt
 
 from src.auth.schemas import TokenData
