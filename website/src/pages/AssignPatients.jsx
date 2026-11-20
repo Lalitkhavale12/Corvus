@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Plus, UserPlus } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authStore";
 import { authAPI } from "../api";
 import { ClinicalShell } from "../components/ClinicalShell";
-import { Badge, Button, Card, Field, Input, Spinner } from "../components/ui";
+import { Alert, Badge, Button, Card, Field, Input, Spinner } from "../components/ui";
 
 export function AssignPatients() {
   const { user } = useAuth();
@@ -63,9 +63,9 @@ export function AssignPatients() {
             />
           </Field>
           {error && (
-            <div className="rounded border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#991B1B]">
+            <Alert>
               {error}
-            </div>
+            </Alert>
           )}
           <Button type="submit" size="lg" className="w-full">
             <Plus className="size-3.5" /> Assign patient
@@ -93,7 +93,7 @@ export function AssignPatients() {
                     </span>
                     <div>
                       <p className="text-sm font-semibold text-on-surface">Patient #{m.patient_id}</p>
-                      <p className="text-[11px] text-on-surface-variant">
+                      <p className="text-xs text-on-surface-variant">
                         Assigned {m.assigned_at ? new Date(m.assigned_at).toLocaleDateString() : "—"}
                       </p>
                     </div>

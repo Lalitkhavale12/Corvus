@@ -1,26 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
+  Activity,
   BarChart3,
   History,
   LayoutDashboard,
   LogOut,
   Menu,
   Stethoscope,
+  UserRound,
+  UserRoundPlus,
   Users,
   X,
 } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authStore";
+import { predictionAPI } from "../api";
+import { IconButton } from "./ui";
 
 const NAV = {
   doctor: [
-    { to: "/doctor-dashboard", label: "Roster", icon: Users },
-    { to: "/models", label: "Models", icon: BarChart3 },
+    { to: "/doctor-dashboard", label: "Patient roster", icon: Users },
+    { to: "/assign-patients", label: "Assign patients", icon: UserRoundPlus },
+    { to: "/models", label: "Model performance", icon: BarChart3 },
+    { to: "/doctor-profile", label: "Profile", icon: Stethoscope },
   ],
   patient: [
-    { to: "/dashboard", label: "Assessment", icon: LayoutDashboard },
-    { to: "/history", label: "History", icon: History },
-    { to: "/models", label: "Models", icon: BarChart3 },
+    { to: "/dashboard", label: "New assessment", icon: LayoutDashboard },
+    { to: "/history", label: "Prediction history", icon: History },
+    { to: "/models", label: "Model performance", icon: BarChart3 },
+    { to: "/profile", label: "Profile", icon: UserRound },
   ],
 };
 
@@ -33,6 +41,25 @@ export function CorvusMark({ className = "size-7" }) {
   );
 }
 
+// One health probe per page load, shared by every shell instance. A status
+// light that is not real is worse than no status light.
+let healthPromise = null;
+function useApiHealth() {
+  const [state, setState] = useState({ status: "loading", version: null });
+  useEffect(() => {
+    healthPromise ??= predictionAPI.health().then((r) => r.data, () => null);
+    let alive = true;
+    healthPromise.then((data) => {
+      if (!alive) return;
+      setState(data ? { status: "online", version: data.model_version_v2 ?? data.model_version } : { status: "offline", version: null });
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return state;
+}
+
 function NavItems({ items, onNavigate }) {
   return items.map(({ to, label, icon: Icon }) => (
     <NavLink
@@ -40,17 +67,42 @@ function NavItems({ items, onNavigate }) {
       to={to}
       onClick={onNavigate}
       className={({ isActive }) =>
-        `flex items-center gap-2.5 rounded px-2.5 py-2 text-[13px] font-medium transition-colors ${
+        `group relative flex items-center gap-2.5 rounded px-2.5 py-2 text-sm transition-colors ${
           isActive
-            ? "bg-primary-soft text-primary"
-            : "text-on-surface-variant hover:bg-surface-low hover:text-on-surface"
+            ? "bg-primary-soft font-semibold text-primary"
+            : "font-medium text-on-surface-variant hover:bg-surface-low hover:text-on-surface"
         }`
       }
     >
-      <Icon className="size-4 shrink-0" />
-      <span className="truncate">{label}</span>
+      {({ isActive }) => (
+        <>
+          <span
+            className={`absolute inset-y-1 left-0 w-0.5 rounded-full bg-primary transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`}
+            aria-hidden="true"
+          />
+          <Icon className="size-4 shrink-0" aria-hidden="true" />
+          <span className="truncate">{label}</span>
+        </>
+      )}
     </NavLink>
   ));
+}
+
+function HealthChip() {
+  const { status, version } = useApiHealth();
+  const tone =
+    status === "online"
+      ? "text-success-ink bg-success-soft border-success-line"
+      : status === "offline"
+        ? "text-danger-ink bg-danger-soft border-danger-line"
+        : "text-on-surface-variant bg-surface-low border-outline-variant";
+  const label = status === "online" ? `API online · v${version}` : status === "offline" ? "API unreachable" : "Checking API";
+  return (
+    <span className={`hidden items-center gap-1.5 rounded border px-2 py-1 text-xs font-medium md:inline-flex ${tone}`}>
+      <Activity className="size-3" aria-hidden="true" />
+      {label}
+    </span>
+  );
 }
 
 export function ClinicalShell({ title, subtitle, actions, children }) {
@@ -60,7 +112,19 @@ export function ClinicalShell({ title, subtitle, actions, children }) {
 
   const items = NAV[user?.role] ?? NAV.patient;
   const roleLabel = user?.role === "doctor" ? "Clinician" : "Patient";
-  const initials = (user?.email ?? "??").slice(0, 2).toUpperCase();
+  const displayName = user?.profile?.full_name || user?.email || "Signed in";
+  const initials = displayName.slice(0, 2).toUpperCase();
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [open]);
 
   const signOut = () => {
     logout();
@@ -69,40 +133,36 @@ export function ClinicalShell({ title, subtitle, actions, children }) {
 
   const sidebar = (onNavigate) => (
     <>
-      <div className="flex h-14 items-center gap-2.5 border-b border-outline-variant px-4">
-        <span className="flex size-8 items-center justify-center rounded bg-primary-container text-on-primary">
+      <div className="flex h-16 items-center gap-2.5 border-b border-outline-variant px-4">
+        <span className="flex size-9 items-center justify-center rounded bg-primary-container text-on-primary">
           <CorvusMark className="size-5" />
         </span>
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-bold leading-tight">Corvus</p>
-          <p className="truncate text-[10px] uppercase tracking-wider text-on-surface-variant">
-            CKD Platform
-          </p>
+          <p className="truncate text-sm font-semibold leading-tight text-on-surface">Corvus Health</p>
+          <p className="truncate text-xs leading-tight text-on-surface-variant">CKD risk platform</p>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 p-2">
-        <p className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-outline">
-          Workspace
-        </p>
+      <nav className="flex-1 space-y-0.5 overflow-y-auto p-2">
+        <p className="px-2.5 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-on-surface-variant">Workspace</p>
         <NavItems items={items} onNavigate={onNavigate} />
       </nav>
 
       <div className="border-t border-outline-variant p-2">
         <div className="flex items-center gap-2 rounded px-2 py-1.5">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-container text-[10px] font-bold text-on-surface-variant">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface-container text-xs font-semibold text-on-surface-variant">
             {initials}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[11px] font-semibold leading-tight">{user?.email}</p>
-            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">{roleLabel}</p>
+            <p className="truncate text-xs font-semibold leading-tight text-on-surface">{displayName}</p>
+            <p className="text-xs leading-tight text-on-surface-variant">{roleLabel}</p>
           </div>
         </div>
         <button
           onClick={signOut}
-          className="mt-1 flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-[13px] font-medium text-on-surface-variant transition-colors hover:bg-surface-low hover:text-on-surface"
+          className="mt-1 flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-low hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-container"
         >
-          <LogOut className="size-4" />
+          <LogOut className="size-4" aria-hidden="true" />
           Sign out
         </button>
       </div>
@@ -110,55 +170,47 @@ export function ClinicalShell({ title, subtitle, actions, children }) {
   );
 
   return (
-    <div className="flex min-h-screen bg-surface bg-kidney-pattern">
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-outline-variant bg-surface-lowest/90 backdrop-blur-sm lg:flex">
+    <div className="flex min-h-screen bg-surface">
+      <aside className="hidden w-60 shrink-0 flex-col border-r border-outline-variant bg-surface-lowest lg:flex">
         {sidebar(undefined)}
       </aside>
 
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-[#0b1c30]/45" onClick={() => setOpen(false)} />
-          <aside className="relative flex h-full w-64 flex-col border-r border-outline-variant bg-surface-lowest/95 backdrop-blur-sm">
-            <button
-              onClick={() => setOpen(false)}
-              className="absolute right-2 top-3.5 rounded p-1 text-on-surface-variant hover:bg-surface-low"
-              aria-label="Close navigation"
-            >
+          <div className="absolute inset-0 bg-on-surface/40" onClick={() => setOpen(false)} aria-hidden="true" />
+          <aside
+            className="relative flex h-full w-72 max-w-[85vw] flex-col border-r border-outline-variant bg-surface-lowest shadow-pop"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation"
+          >
+            <IconButton label="Close navigation" className="absolute right-2 top-3.5 z-10" onClick={() => setOpen(false)}>
               <X className="size-4" />
-            </button>
+            </IconButton>
             {sidebar(() => setOpen(false))}
           </aside>
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex min-h-14 items-center gap-3 border-b border-outline-variant bg-surface-lowest/90 backdrop-blur-sm px-4">
-          <button
-            onClick={() => setOpen(true)}
-            className="rounded p-1.5 text-on-surface-variant hover:bg-surface-low lg:hidden"
-            aria-label="Open navigation"
-          >
+        <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b border-outline-variant bg-surface-lowest/95 px-4 py-2 backdrop-blur sm:px-6">
+          <IconButton label="Open navigation" className="lg:hidden" onClick={() => setOpen(true)}>
             <Menu className="size-5" />
-          </button>
+          </IconButton>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-bold leading-tight text-on-surface">{title}</h1>
-            {subtitle && (
-              <p className="truncate text-[11px] text-on-surface-variant">{subtitle}</p>
-            )}
+            <h1 className="truncate text-lg font-semibold leading-tight text-on-surface">{title}</h1>
+            {subtitle && <p className="truncate text-xs leading-tight text-on-surface-variant">{subtitle}</p>}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <HealthChip />
             {actions}
-            <span className="hidden items-center gap-1.5 rounded border border-outline-variant bg-surface-low px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-secondary sm:inline-flex">
-              <Stethoscope className="size-3" />
-              {roleLabel}
-            </span>
           </div>
         </header>
 
-        <main className="flex-1 overflow-x-hidden px-4 py-5 sm:px-6">{children}</main>
-        <p className="border-t border-outline-variant px-4 py-2 text-[10px] leading-relaxed text-on-surface-variant sm:px-6">
-          Screening aid only, not a diagnosis. High-recall/low-precision model, so a
-          positive flag needs clinical confirmation.
+        <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-6">{children}</main>
+        <p className="border-t border-outline-variant px-4 py-2.5 text-xs leading-relaxed text-on-surface-variant sm:px-6">
+          Screening aid only, not a diagnosis. The model is tuned for high recall at low precision, so a positive flag needs
+          clinical confirmation.
         </p>
       </div>
     </div>

@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Activity, ArrowRight, CheckCircle2, FileDown } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authStore";
 import { predictionAPI } from "../api";
 import { ClinicalShell } from "../components/ClinicalShell";
 import { NhanesForm } from "../components/NhanesForm";
-import { Button, Card, ResultBadge, StatCard } from "../components/ui";
+import { Alert, Button, Card, ResultBadge, StatCard } from "../components/ui";
 import { addPrediction, getPredictions } from "../lib/history";
+import { DECISION_THRESHOLD, MODEL_VERSION } from "../data/model";
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -56,11 +57,11 @@ export function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded border border-[#A7F3D0] bg-[#ECFDF5] px-2 py-1 text-[11px] font-semibold text-[#065F46]">
-              <CheckCircle2 className="size-3.5" /> /v2/predict active
+            <span className="inline-flex items-center gap-1.5 rounded border border-success-line bg-success-soft px-2 py-1 text-xs font-semibold text-success-ink">
+              <CheckCircle2 className="size-3.5" aria-hidden="true" /> /v2/predict active
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded border border-outline-variant px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
-              v15
+            <span className="inline-flex items-center gap-1.5 rounded border border-outline-variant px-2 py-1 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+              v{MODEL_VERSION}
             </span>
           </div>
         </div>
@@ -68,7 +69,7 @@ export function Dashboard() {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <StatCard label="Assessments (this session)" value={recent.length} hint="Stored locally until history endpoint ships" />
           <StatCard label="Serving endpoint" value="/v2/predict" hint="POST • JSON • version-stamped" />
-          <StatCard label="Serving model" value="v15" hint="GradientBoosting • NHANES-native" />
+          <StatCard label="Serving model" value={`v${MODEL_VERSION}`} hint="GradientBoosting • NHANES-native" />
         </div>
 
         <Card>
@@ -79,7 +80,7 @@ export function Dashboard() {
               </span>
               <div>
                 <h2 className="text-base font-bold text-on-surface">CKD Risk Assessment Form</h2>
-                <p className="text-[11px] text-on-surface-variant">
+                <p className="text-xs text-on-surface-variant">
                   Numeric fields accept decimal values. Categorical fields use NHANES codes.
                 </p>
               </div>
@@ -90,11 +91,7 @@ export function Dashboard() {
           </div>
         </Card>
 
-        {error && (
-          <div className="rounded border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-sm text-[#991B1B]">
-            {error}
-          </div>
-        )}
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {result && (
           <Card className="overflow-hidden">
@@ -103,7 +100,7 @@ export function Dashboard() {
                 <ResultBadge prediction={result.prediction} />
                 <h2 className="text-base font-bold text-on-surface">Prediction Result</h2>
               </div>
-              <div className="flex items-center gap-2 text-[11px] text-on-surface-variant">
+              <div className="flex items-center gap-2 text-xs text-on-surface-variant">
                 <span className="rounded border border-outline-variant px-2 py-0.5 font-mono">model_version: {result.model_version}</span>
                 <span className="rounded border border-outline-variant px-2 py-0.5 font-mono">endpoint: /v2/predict</span>
               </div>
@@ -118,13 +115,13 @@ export function Dashboard() {
               <div className="flex-1">
                 <div className="h-3 w-full overflow-hidden rounded-full bg-surface-container">
                   <div
-                    className={`h-full ${result.prediction === 1 ? "bg-[#DC2626]" : "bg-[#059669]"}`}
+                    className={`h-full ${result.prediction === 1 ? "bg-danger" : "bg-success"}`}
                     style={{ width: `${Math.max(4, Math.round(result.probability * 100))}%` }}
                   />
                 </div>
-                <div className="mt-1 flex justify-between text-[11px] text-on-surface-variant tabular">
+                <div className="mt-1 flex justify-between text-xs text-on-surface-variant tabular">
                   <span>0.0</span>
-                  <span>Decision cutoff ~ 0.50</span>
+                  <span>Decision cutoff {DECISION_THRESHOLD.toFixed(3)}</span>
                   <span>1.0</span>
                 </div>
               </div>

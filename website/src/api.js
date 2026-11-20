@@ -44,6 +44,7 @@ export const predictionAPI = {
   // Phase 8-03: prediction history endpoints
   getHistory: () => api.get("/auth/predictions"),
   getPrediction: (id) => api.get(`/auth/predictions/${id}`),
+  getDoctorPatients: () => api.get("/doctors/patients"),
 };
 
 export default api;

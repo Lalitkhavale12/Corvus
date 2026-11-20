@@ -188,6 +188,10 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      # Without this the SQLite DB (admin user, orgs, prefs) lives in the
+      # container layer and is wiped on every recreate -- the admin password
+      # then silently reverts to an empty DB re-seeded from GF_SECURITY_*.
+      - grafana-data:/var/lib/grafana
     depends_on:
       prometheus:
         condition: service_started

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Edit2, Save, User } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/authStore";
 import { authAPI } from "../api";
 import { ClinicalShell } from "../components/ClinicalShell";
-import { Badge, Button, Card, Field, Input, Select, Spinner } from "../components/ui";
+import { Alert, Badge, Button, Card, Field, Input, Select, Spinner } from "../components/ui";
 
 export function PatientProfile() {
   const { user } = useAuth();
@@ -89,9 +89,9 @@ export function PatientProfile() {
               <Input id="phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             </Field>
             {error && (
-              <div className="rounded border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-xs text-[#991B1B]">
+              <Alert>
                 {error}
-              </div>
+              </Alert>
             )}
             <Button type="submit" size="lg" className="w-full">
               Save profile
@@ -135,7 +135,7 @@ export function PatientProfile() {
             <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
               Cancel
             </Button>
-            <p className="mt-3 text-[11px] text-on-surface-variant">
+            <p className="mt-3 text-xs text-on-surface-variant">
               Note: a full update endpoint lands in Phase 8-03; save re-creates the profile.
             </p>
           </form>
@@ -156,26 +156,26 @@ export function PatientProfile() {
               </span>
               <div>
                 <p className="text-sm font-semibold text-on-surface">MRN</p>
-                <p className="text-[11px] text-on-surface-variant tabular">{p.mrn || "—"}</p>
+                <p className="text-xs text-on-surface-variant tabular">{p.mrn || "—"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 border-b border-outline-variant pb-3">
-              <span className="text-[11px] font-semibold text-on-surface-variant">Sex</span>
-              <span className="ml-auto text-[11px] text-on-surface-variant tabular">{p.sex || "Not specified"}</span>
+              <span className="text-xs font-semibold text-on-surface-variant">Sex</span>
+              <span className="ml-auto text-xs text-on-surface-variant tabular">{p.sex || "Not specified"}</span>
             </div>
             <div className="flex items-center gap-3 border-b border-outline-variant pb-3">
-              <span className="text-[11px] font-semibold text-on-surface-variant">Phone</span>
-              <span className="ml-auto text-[11px] text-on-surface-variant tabular">{p.phone || "—"}</span>
+              <span className="text-xs font-semibold text-on-surface-variant">Phone</span>
+              <span className="ml-auto text-xs text-on-surface-variant tabular">{p.phone || "—"}</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-[11px] font-semibold text-on-surface-variant">Member since</span>
-              <span className="ml-auto text-[11px] text-on-surface-variant tabular">
+              <span className="text-xs font-semibold text-on-surface-variant">Member since</span>
+              <span className="ml-auto text-xs text-on-surface-variant tabular">
                 {p.created_at ? new Date(p.created_at).toLocaleDateString() : "—"}
               </span>
             </div>
           </div>
           <div className="px-6 py-3 border-t border-outline-variant">
-            <p className="text-[11px] text-on-surface-variant">
+            <p className="text-xs text-on-surface-variant">
               Account email: <span className="font-semibold text-on-surface">{user?.email}</span>
             </p>
           </div>

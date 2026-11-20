@@ -1,5 +1,9 @@
-// NHANES-native schema accepted by POST /v2/predict (model v11).
-// 16 numeric + 5 categorical = 21 fields. Blank numeric -> null (server-side imputer).
+// NHANES-native schema accepted by POST /v2/predict (model v15).
+// 20 numeric + 3 categorical = 23 fields, exactly the CKDRequestNative schema.
+// Blank numeric -> null (server-side imputer).
+// RIDRETH1 and MCQ035 are NOT in the v15 native schema (dropped as US-specific
+// / clinician-unfillable), so asking for them would collect answers the model
+// never sees. Keep this list in sync with api/schemas.py:CKDRequestNative.
 export const NHANES_GROUPS = [
   {
     title: "Demographics",
@@ -12,17 +16,6 @@ export const NHANES_GROUPS = [
         options: [
           ["1", "Male"],
           ["2", "Female"],
-        ],
-      },
-      {
-        key: "RIDRETH1",
-        label: "Race / ethnicity",
-        options: [
-          ["1", "Mexican American"],
-          ["2", "Other Hispanic"],
-          ["3", "White"],
-          ["4", "Black"],
-          ["5", "Other"],
         ],
       },
       {
@@ -44,15 +37,6 @@ export const NHANES_GROUPS = [
           ["1", "Yes"],
           ["2", "No"],
           ["3", "Borderline"],
-        ],
-      },
-      {
-        key: "MCQ035",
-        label: "Ever told of kidney failure",
-        options: [
-          ["1", "Yes"],
-          ["2", "No"],
-          ["9", "Don't know"],
         ],
       },
     ],

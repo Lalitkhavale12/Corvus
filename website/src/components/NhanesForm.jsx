@@ -26,8 +26,8 @@ export function NhanesForm({ onSubmit, submitLabel = "Get Prediction", dense = t
   return (
     <form onSubmit={submit} className="space-y-5">
       {NHANES_GROUPS.map((group) => (
-        <fieldset key={group.title} className="space-y-3">
-          <legend className="w-full border-b border-outline-variant pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+        <fieldset key={group.title} className="space-y-1">
+          <legend className="mb-3 w-full border-b border-outline-variant pb-1.5 text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
             {group.title}
           </legend>
           <div className={`grid gap-3 ${grid}`}>
@@ -64,7 +64,7 @@ export function NhanesForm({ onSubmit, submitLabel = "Get Prediction", dense = t
       ))}
 
       <div className="flex items-center justify-between gap-3 border-t border-outline-variant pt-4">
-        <p className="text-[11px] leading-tight text-on-surface-variant">
+        <p className="text-xs leading-snug text-on-surface-variant">
           Blank fields are sent as <span className="font-mono">null</span> and imputed by the
           serving pipeline.
         </p>

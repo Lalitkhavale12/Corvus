@@ -1,153 +1,156 @@
-import { useState, useEffect } from "react";
-import { Database, PlaySquare, ShieldCheck, Activity, Timer, ArrowRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { BarChart3, Database, Info, RefreshCw, ShieldCheck } from "lucide-react";
 import { ClinicalShell } from "../components/ClinicalShell";
-import { Card, Button, Badge, StatCard } from "../components/ui";
+import { Alert, Badge, Button, Card, CardHeader, Skeleton, StatCard } from "../components/ui";
 import { predictionAPI } from "../api";
+import {
+  DATA_NOTES,
+  DECISION_THRESHOLD,
+  FEATURE_COUNT,
+  METRICS,
+  MODEL_ALGORITHM,
+  MODEL_PARAMS,
+  MODEL_RUN_ID,
+  MODEL_VERSION,
+} from "../data/model";
+
+const pct = (value) => `${(value * 100).toFixed(1)}%`;
+
+const PERFORMANCE = [
+  { label: "Holdout ROC-AUC", value: METRICS.rocAuc.toFixed(4), note: `95% CI ${METRICS.rocAucCi[0].toFixed(3)}–${METRICS.rocAucCi[1].toFixed(3)}` },
+  { label: "Holdout PR-AUC", value: METRICS.prAuc.toFixed(4), note: "Primary ranking metric at low prevalence" },
+  { label: "Recall (sensitivity)", value: pct(METRICS.recall), note: "Share of true CKD cases flagged" },
+  { label: "Precision (PPV)", value: pct(METRICS.precision), note: "Share of flags that are true cases" },
+  { label: "F1", value: METRICS.f1.toFixed(4), note: `At threshold ${DECISION_THRESHOLD.toFixed(3)}` },
+  { label: "Accuracy", value: pct(METRICS.accuracy), note: "Close to base rate — do not use alone" },
+  { label: "Brier score", value: METRICS.brier.toFixed(4), note: "Probability calibration, lower is better" },
+  { label: "CV ROC-AUC (5-fold)", value: `${METRICS.cvMeanAuc.toFixed(4)} ± ${METRICS.cvStdAuc.toFixed(4)}`, note: "Training stability" },
+];
 
 export function Models() {
   const [info, setInfo] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
-  const navigate = useNavigate();
+
+  const load = useCallback(async (options = {}) => {
+    if (options.reset !== false) {
+      setBusy(true);
+      setError("");
+    }
+    try {
+      const res = await predictionAPI.modelInfo();
+      setInfo(res.data);
+    } catch {
+      setError("Could not reach /v2/model_info. The API container may be down.");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
   useEffect(() => {
-    predictionAPI
-      .modelInfo()
-      .then((res) => setInfo(res.data))
-      .catch(() => setError("Unable to reach /v2/model_info — check the API container."))
-      .finally(() => setBusy(false));
-  }, []);
+    // Initial fetch syncs with the API; loading is already true.
+    // oxlint-disable-next-line react/set-state-in-effect
+    load({ reset: false });
+  }, [load]);
 
   return (
     <ClinicalShell
-      title="Models & Endpoints"
-      subtitle="Serving model registry status, /v2 contract, and live predictions"
+      title="Model performance"
+      subtitle={`corvus-ckd v${MODEL_VERSION} · ${MODEL_ALGORITHM}`}
       actions={
-        <Button variant="secondary" size="sm">
-          <PlaySquare className="size-3.5" /> Refresh
+        <Button variant="secondary" size="sm" onClick={load} disabled={busy}>
+          <RefreshCw className={`size-4 ${busy ? "animate-spin" : ""}`} aria-hidden="true" />
+          Refresh
         </Button>
       }
     >
-      <div className="mx-auto max-w-7xl space-y-5">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <StatCard label="Registered model" value="corvus-ckd" hint="MLflow registry" />
-          <StatCard label="Serving version" value={info?.model_version ?? "—"} hint="Pinned at startup" />
-          <StatCard label="Route" value="/v2/*" hint="v9 remains at v1 routes" />
+      <div className="mx-auto max-w-6xl space-y-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard label="Serving version" value={`v${info?.model_version ?? MODEL_VERSION}`} hint="Pinned at container startup" icon={Database} />
+          <StatCard label="Holdout ROC-AUC" value={METRICS.rocAuc.toFixed(4)} hint="NHANES 2021-2023 holdout" icon={BarChart3} />
+          <StatCard label="Decision threshold" value={DECISION_THRESHOLD.toFixed(3)} hint="Tuned for recall, not precision" />
         </div>
 
         <Card>
-          <div className="flex items-center justify-between border-b border-outline-variant px-5 py-4">
-            <div className="flex items-center gap-2">
-              <span className="flex size-8 items-center justify-center rounded bg-primary-soft text-primary">
-                <Database className="size-4" />
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-on-surface">Live Model Information</h2>
-                <p className="text-[11px] text-on-surface-variant">
-                  {busy ? "Loading /v2/model_info…" : error ? "Endpoint unreachable" : `Pinned at container startup — ${info?.model_name} v${info?.model_version}`}
-                </p>
+          <CardHeader
+            icon={Database}
+            title="Live model information"
+            description={busy ? "Loading /v2/model_info…" : error ? "Endpoint unreachable" : "Values below are read from the serving container, not hardcoded."}
+            actions={<Badge tone={busy ? "moderate" : error ? "high" : "low"} dot>{busy ? "Loading" : error ? "Unreachable" : "Online"}</Badge>}
+          />
+          <div className="p-5">
+            {error ? (
+              <Alert tone="danger" title="Model info unavailable">{error}</Alert>
+            ) : busy ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-16" />
+                ))}
               </div>
-            </div>
-            <Badge tone={busy ? "moderate" : error ? "high" : "low"} dot={busy ? false : undefined}>
-              {busy ? "Loading" : error ? "Unreachable" : "Online"}
-            </Badge>
-          </div>
-          {busy || error ? null : (
-            <div className="grid gap-3 p-5 sm:grid-cols-2">
-              {[
-                ["Model name", info.model_name],
-                ["Version", info.model_version],
-                ["Run ID", info.run_id],
-                ["Resolution", info.resolution],
-              ].map(([k, v]) => (
-                <Card key={k} className="p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant mb-1">{k}</p>
-                  <p className="text-sm font-mono tabular text-on-surface break-all">{v}</p>
-                </Card>
-              ))}
-            </div>
-          )}
-          {error && (
-            <div className="p-5 rounded border border-[#FECACA] bg-[#FEF2F2] text-[12px] text-[#991B1B]">
-              {error}
-            </div>
-          )}
-        </Card>
-
-        <Card>
-          <div className="border-b border-outline-variant p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-on-surface">Compare Models</h2>
-              <p className="text-[11px] text-on-surface-variant">
-                Compare serving model versions side by side
-              </p>
-            </div>
-          </div>
-          <div className="p-4">
-            <Button onClick={() => navigate("/models/model-comparison")} size="sm">
-              <ArrowRight className="size-3.5" /> Compare Model Versions
-            </Button>
+            ) : (
+              <dl className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ["Model name", info.model_name],
+                  ["Version", info.model_version],
+                  ["Run ID", info.run_id],
+                  ["Resolution", info.resolution],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded border border-outline-variant bg-surface-low px-3 py-2.5">
+                    <dt className="text-xs font-medium text-on-surface-variant">{label}</dt>
+                    <dd className="mt-0.5 break-all font-mono text-sm tabular text-on-surface">{value ?? "—"}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
           </div>
         </Card>
 
         <Card>
-          <div className="border-b border-outline-variant p-4 flex items-center gap-2">
-            <Activity className="size-4 text-primary-container" />
-            <h2 className="text-base font-bold text-on-surface">Version Comparison (documented)</h2>
-          </div>
-          <div className="grid gap-3 p-4">
-            {[
-              {
-                name: "v11 — NHANES Native (Production, /v2)",
-                engine: "GradientBoosting",
-                cohort: "NHANES 2017–Mar 2020",
-                rows: "5,343 derived",
-                features: "21 (16 numeric + 5 categorical)",
-                holdout: "ROC-AUC 0.8265",
-              },
-              {
-                name: "v9 — UCI CKD (Legacy, v1 routes)",
-                engine: "MLP-ReLU",
-                cohort: "UCI CKD ID 336",
-                rows: "400",
-                features: "24 (heavy missingness ≤38%/col)",
-                holdout: "ROC-AUC 0.5479",
-              },
-            ].map((m) => (
-              <Card key={m.name} className="p-3">
-                <p className="text-xs font-bold text-on-surface mb-1">{m.name}</p>
-                <dl className="space-y-1 text-[11px] leading-relaxed">
-                  <div className="flex justify-between"><dt className="text-on-surface-variant">Engine</dt><dd className="text-on-surface tabular">{m.engine}</dd></div>
-                  <div className="flex justify-between"><dt className="text-on-surface-variant">Cohort</dt><dd className="text-on-surface-variant">{m.cohort}</dd></div>
-                  <div className="flex justify-between"><dt className="text-on-surface-variant">Rows</dt><dd className="text-on-surface-variant tabular">{m.rows}</dd></div>
-                  <div className="flex justify-between"><dt className="text-on-surface-variant">Features</dt><dd className="text-on-surface-variant tabular">{m.features}</dd></div>
-                  <div className="flex justify-between"><dt className="text-on-surface-variant">Holdout ROC-AUC</dt><dd className="text-on-surface-variant tabular font-semibold">{m.holdout}</dd></div>
-                </dl>
-              </Card>
+          <CardHeader
+            icon={BarChart3}
+            title="Holdout metrics"
+            description={`Run ${MODEL_RUN_ID.slice(0, 8)} · ${FEATURE_COUNT} features · ${MODEL_PARAMS}`}
+          />
+          <div className="divide-y divide-outline-variant">
+            {PERFORMANCE.map((metric) => (
+              <div key={metric.label} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-on-surface">{metric.label}</p>
+                  <p className="text-xs text-on-surface-variant">{metric.note}</p>
+                </div>
+                <p className="font-mono text-sm font-semibold tabular text-on-surface">{metric.value}</p>
+              </div>
             ))}
           </div>
-          <p className="mt-4 px-5 pb-5 text-[11px] text-on-surface-variant">
-            Metrics above are from the repository’s documented holdout evaluation (phase 07
-            verification passed 12/12 automated checks). No performance claims are fabricated
-            here.
+          <p className="border-t border-outline-variant bg-surface-low px-5 py-3 text-xs leading-relaxed text-on-surface-variant">
+            The model is tuned for recall: at the serving threshold it catches about 84% of true cases while roughly
+            two thirds of flags are false positives. Treat every flag as a prompt for confirmatory testing.
           </p>
         </Card>
 
         <Card>
-          <div className="border-b border-outline-variant p-4 flex items-center gap-2">
-            <Timer className="size-4 text-primary-container" />
-            <h2 className="text-base font-bold text-on-surface">Serving Notes</h2>
-          </div>
-          <div className="p-4 space-y-2 text-[12px] text-on-surface-variant">
-            <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 size-3.5" /><span>v11 serves only at /v2 endpoints; /v1 endpoints remain bound to v9.</span></div>
-            <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 size-3.5" /><span>Fail-closed: /v2 returns 503 while no model version is pinned.</span></div>
-            <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 size-3.5" /><span>Predictions log to PostgreSQL (table predictions_v2) on every call.</span></div>
-            <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 size-3.5" /><span>Blank NHANES fields are sent as null and imputed server-side.</span></div>
-          </div>
+          <CardHeader icon={Info} title="Data and label provenance" description="What the model was trained on, in plain terms." />
+          <ul className="space-y-2.5 p-5">
+            {DATA_NOTES.map((note) => (
+              <li key={note} className="flex items-start gap-2.5 text-sm leading-relaxed text-on-surface-variant">
+                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                {note}
+              </li>
+            ))}
+          </ul>
         </Card>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-outline-variant bg-surface-lowest px-5 py-4">
+          <div>
+            <p className="text-sm font-medium text-on-surface">Version comparison</p>
+            <p className="text-xs text-on-surface-variant">Serving v15 next to the legacy UCI model on /v1.</p>
+          </div>
+          <Button as={Link} to="/models/model-comparison" variant="secondary" size="sm">
+            Compare versions
+          </Button>
+        </div>
       </div>
     </ClinicalShell>
   );
 }
-

@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import { useAuth } from "./contexts/authStore";
 import { ClinicalLogin } from "./pages/ClinicalLogin";
 import { Register } from "./pages/Register";
 import { Dashboard } from "./pages/Dashboard";

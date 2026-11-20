@@ -1,213 +1,231 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Filter, MoreVertical, Search, UserPlus } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { FlaskConical, RefreshCw, Search, UserPlus, Users } from "lucide-react";
+import { useAuth } from "../contexts/authStore";
+import { predictionAPI } from "../api";
 import { ClinicalShell } from "../components/ClinicalShell";
-import { Button, Card, Badge, StatCard, ResultBadge } from "../components/ui";
+import { Alert, Badge, Button, Card, CardHeader, EmptyState, ResultBadge, Skeleton, StatCard, Table, TBody, TD, TH, THead } from "../components/ui";
 import { ROSTER } from "../data/sample";
+
+const dateFmt = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 export function DoctorDashboard() {
   const { user } = useAuth();
+  const [assignments, setAssignments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [risk, setRisk] = useState("all");
-  const [model, setModel] = useState("all");
 
+  const load = useCallback((options = {}) => {
+    if (options.reset !== false) {
+      setLoading(true);
+      setError("");
+    }
+    predictionAPI
+      .getDoctorPatients()
+      .then((res) => setAssignments(res.data || []))
+      .catch(() => setError("Could not load your patient assignments."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    // Initial fetch syncs with the API; loading is already true.
+    // oxlint-disable-next-line react/set-state-in-effect
+    load({ reset: false });
+  }, [load]);
+
+  const active = assignments.filter((row) => row.is_active);
   const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
     return ROSTER.filter((p) => {
-      const q = query.toLowerCase();
-      const matchesQuery =
-        !q || p.name.toLowerCase().includes(q) || p.mrn.toLowerCase().includes(q);
-      const matchesRisk =
-        risk === "all"
-          ? true
-          : risk === "flagged"
-          ? p.prediction === 1
-          : p.prediction === 0;
-      const matchesModel =
-        model === "all" ? true : String(p.modelVersion) === model;
-      return matchesQuery && matchesRisk && matchesModel;
-    }).sort((a, b) => {
-      const ra = a.prediction === 1 ? 1 : a.prediction === null ? 0 : -1;
-      const rb = b.prediction === 1 ? 1 : b.prediction === null ? 0 : -1;
-      return rb - ra;
+      const matchesQuery = !q || p.name.toLowerCase().includes(q) || p.mrn.toLowerCase().includes(q);
+      const matchesRisk = risk === "all" || (risk === "flagged" ? p.prediction === 1 : p.prediction === 0);
+      return matchesQuery && matchesRisk;
     });
-  }, [query, risk, model]);
+  }, [query, risk]);
 
   const flagged = ROSTER.filter((p) => p.prediction === 1).length;
-  const pending = ROSTER.filter((p) => p.prediction === null).length;
+  const healthy = ROSTER.filter((p) => p.prediction === 0).length;
 
   return (
     <ClinicalShell
-      title="Doctor Dashboard"
-      subtitle={`Nephrology service • ${user?.email}`}
+      title="Patient roster"
+      subtitle={user?.email}
       actions={
         <>
-          <Button variant="secondary" size="sm">
-            <Download className="size-3.5" /> Batch Export
+          <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
+            Refresh
           </Button>
-          <Button size="sm">
-            <UserPlus className="size-3.5" /> Add Patient
+          <Button as={Link} to="/assign-patients" size="sm">
+            <UserPlus className="size-4" aria-hidden="true" />
+            Assign patient
           </Button>
         </>
       }
     >
       <div className="mx-auto max-w-7xl space-y-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-lg font-bold text-on-surface">
-              Welcome back, Dr. {user?.email?.split("@")[0]}
-            </p>
-            <p className="text-sm text-on-surface-variant">
-              Review predictions, triage flagged patients, and inspect history by patient.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <StatCard label="Assigned Patients" value={ROSTER.length} hint="+2 this week" />
-          <Card className="min-w-[158px] flex-1 p-4 border-error-container">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-on-surface">CKD Flagged</p>
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-error opacity-75" />
-                <span className="relative inline-flex size-2 rounded-full bg-error" />
-              </span>
-            </div>
-            <p className="mt-1 text-2xl font-bold text-tertiary tabular">{flagged}</p>
-            <p className="mt-0.5 text-[11px] text-on-surface-variant">-1 triage cleared</p>
-          </Card>
-          <StatCard label="Pending Reviews" value={pending} hint="+1 awaiting labs" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard label="Assigned patients" value={loading ? "—" : assignments.length} hint="From the assignment service" icon={Users} />
+          <StatCard label="Active assignments" value={loading ? "—" : active.length} hint="is_active = true" />
+          <StatCard label="Inactive" value={loading ? "—" : assignments.length - active.length} hint="Assignment revoked" />
         </div>
 
         <Card>
+          <CardHeader
+            icon={Users}
+            title="Live assignments"
+            description="Real rows from GET /doctors/patients. The API returns the mapping only — no patient demographics or predictions."
+          />
+          {error ? (
+            <div className="p-5">
+              <Alert tone="danger" title="Assignments unavailable">{error}</Alert>
+            </div>
+          ) : loading ? (
+            <div className="space-y-2 p-5">
+              {[0, 1].map((i) => (
+                <Skeleton key={i} className="h-10" />
+              ))}
+            </div>
+          ) : assignments.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="No patients assigned"
+              body="Assign a patient by email and their record will appear here."
+              action={
+                <Button as={Link} to="/assign-patients" size="sm">
+                  Assign a patient
+                </Button>
+              }
+            />
+          ) : (
+            <div className="px-5 py-4">
+              <Table minWidth={520}>
+                <THead>
+                  <tr>
+                    <TH>Patient ID</TH>
+                    <TH>Status</TH>
+                    <TH>Assigned</TH>
+                    <TH className="text-right">Record</TH>
+                  </tr>
+                </THead>
+                <TBody>
+                  {assignments.map((row) => (
+                    <tr key={row.id}>
+                      <TD className="font-mono tabular">#{row.patient_id}</TD>
+                      <TD>
+                        <Badge tone={row.is_active ? "low" : "neutral"} dot>
+                          {row.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </TD>
+                      <TD className="tabular text-on-surface-variant">
+                        {row.assigned_at ? dateFmt.format(new Date(row.assigned_at)) : "—"}
+                      </TD>
+                      <TD className="text-right">
+                        <Button as={Link} to={`/patients/${row.patient_id}`} variant="secondary" size="sm">
+                          Open
+                        </Button>
+                      </TD>
+                    </tr>
+                  ))}
+                </TBody>
+              </Table>
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <div className="border-b border-outline-variant bg-warning-soft px-5 py-3">
+            <p className="flex items-center gap-2 text-sm font-medium text-warning-ink">
+              <FlaskConical className="size-4 shrink-0" aria-hidden="true" />
+              Illustrative preview — sample data, not real patients
+            </p>
+            <p className="mt-1 pl-6 text-xs leading-relaxed text-warning-ink/90">
+              There is no per-patient prediction endpoint yet, so this table uses invented records to demonstrate the
+              triage layout. Nothing here reflects a real person or a real model run.
+            </p>
+          </div>
+
           <div className="flex flex-col gap-3 border-b border-outline-variant p-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative w-full max-w-md">
-              <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-outline" />
+            <div className="relative w-full max-w-sm">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-outline" aria-hidden="true" />
               <input
+                type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="h-8 w-full rounded border border-outline-variant bg-surface-lowest pl-8 pr-2.5 text-sm text-on-surface placeholder:text-[#8a8f9e] focus:border-primary-container focus:outline-none focus:ring-1 focus:ring-primary-container"
-                placeholder="Search by patient name or MRN..."
+                aria-label="Search sample patients"
+                className="h-9 w-full rounded border border-outline-variant bg-surface-lowest pl-8 pr-2.5 text-sm text-on-surface placeholder:text-outline focus:border-primary-container focus:outline-none focus:ring-1 focus:ring-primary-container"
+                placeholder="Search sample name or MRN"
               />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex rounded border border-outline-variant bg-surface-low p-0.5 text-[11px] font-semibold">
-                {[
-                  { key: "all", label: `All [${ROSTER.length}]` },
-                  { key: "flagged", label: `CKD Flagged [${flagged}]` },
-                  { key: "healthy", label: `Healthy [${ROSTER.length - flagged - pending}]` },
-                ].map((opt) => (
-                  <button
-                    key={opt.key}
-                    onClick={() => setRisk(opt.key)}
-                    className={`rounded px-2.5 py-1 ${
-                      risk === opt.key ? "bg-surface-lowest text-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              <div className="relative">
-                <select
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="h-8 appearance-none rounded border border-outline-variant bg-surface-lowest px-2.5 pr-7 text-[11px] font-semibold text-on-surface focus:border-primary-container focus:outline-none focus:ring-1 focus:ring-primary-container"
+            <div className="flex flex-wrap items-center gap-1 rounded border border-outline-variant bg-surface-low p-1" role="tablist" aria-label="Filter by risk">
+              {[
+                { key: "all", label: `All (${ROSTER.length})` },
+                { key: "flagged", label: `Flagged (${flagged})` },
+                { key: "healthy", label: `Healthy (${healthy})` },
+              ].map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={risk === opt.key}
+                  onClick={() => setRisk(opt.key)}
+                  className={`min-h-8 rounded px-3 text-xs font-semibold transition-colors ${
+                    risk === opt.key
+                      ? "bg-surface-lowest text-primary shadow-sm"
+                      : "text-on-surface-variant hover:text-on-surface"
+                  }`}
                 >
-                  <option value="all">All Models</option>
-                  <option value="11">v11 (NHANES)</option>
-                  <option value="9">v9 (UCI CKD)</option>
-                </select>
-                <Filter className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-outline" />
-              </div>
-              <Button variant="ghost" size="sm" className="px-2">
-                <Download className="size-3.5" />
-              </Button>
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="scrollbar-slim overflow-x-auto">
-            <table className="w-full min-w-[880px] text-left">
-              <thead>
-                <tr className="border-b border-outline-variant bg-surface-low text-[10px] uppercase tracking-wider text-on-surface-variant">
-                  <th className="px-4 py-2 font-semibold">Patient</th>
-                  <th className="px-3 py-2 font-semibold">Role</th>
-                  <th className="px-3 py-2 font-semibold">Last Prediction</th>
-                  <th className="px-3 py-2 font-semibold">Risk Result / Probability</th>
-                  <th className="px-3 py-2 font-semibold">Model</th>
-                  <th className="px-3 py-2 font-semibold">Risk Status</th>
-                  <th className="px-4 py-2 text-right font-semibold">Action</th>
+          <div className="px-5 py-4">
+            <Table minWidth={760}>
+              <THead>
+                <tr>
+                  <TH>Patient</TH>
+                  <TH>Last run</TH>
+                  <TH>Result</TH>
+                  <TH>Probability</TH>
+                  <TH>Model</TH>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant">
+              </THead>
+              <TBody>
                 {filtered.map((p) => (
-                  <tr key={p.id} className="group hover:bg-surface-low/70">
-                    <td className="px-4 py-2.5">
-                      <Link to={`/patients/${p.id}`} className="font-semibold text-on-surface hover:underline">
+                  <tr key={p.id}>
+                    <TD>
+                      <Link to={`/patients/${p.id}`} className="inline-flex min-h-8 items-center font-medium text-on-surface hover:underline">
                         {p.name}
                       </Link>
-                      <p className="text-[11px] text-on-surface-variant tabular">
-                        {p.mrn} • {p.age}yo {p.sex}
+                      <p className="text-xs tabular text-on-surface-variant">
+                        {p.mrn} · {p.age}yo {p.sex}
                       </p>
-                    </td>
-                    <td className="px-3 py-2.5 text-[11px] text-on-surface-variant">Patient</td>
-                    <td className="px-3 py-2.5 text-[11px] text-on-surface-variant tabular">{p.lastAt}</td>
-                    <td className="px-3 py-2.5">
+                    </TD>
+                    <TD className="tabular text-on-surface-variant">{p.lastAt}</TD>
+                    <TD>
                       {p.prediction === null ? (
-                        <span className="text-[11px] font-semibold text-[#92400E]">Pending Labs</span>
+                        <Badge tone="moderate" dot>Labs pending</Badge>
                       ) : (
                         <ResultBadge prediction={p.prediction} />
                       )}
-                      <p className="mt-0.5 text-[11px] text-on-surface-variant tabular">
-                        {p.probability === null ? "Awaiting serum creatinine" : `p = ${p.probability.toFixed(3)} (${(p.probability * 100).toFixed(1)}%)`}
-                      </p>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {p.modelVersion ? (
-                        <Badge tone="neutral" className="normal-case">
-                          v{p.modelVersion} {p.modelVersion === "11" ? "(NHANES)" : "(UCI)"}
-                        </Badge>
-                      ) : (
-                        <Badge tone="neutral" className="normal-case">
-                          Pending
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {p.prediction === 1 && <Badge tone="high">High Risk</Badge>}
-                      {p.prediction === 0 && <Badge tone="low">Healthy</Badge>}
-                      {p.prediction === null && <Badge tone="moderate">Lab Pending</Badge>}
-                    </td>
-                    <td className="px-4 py-2.5 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <Link to={`/patients/${p.id}`}>
-                          <Button variant="secondary" size="sm">
-                            View Detail
-                          </Button>
-                        </Link>
-                        <button className="rounded p-1 text-on-surface-variant hover:bg-surface-low">
-                          <MoreVertical className="size-4" />
-                        </button>
-                      </div>
-                    </td>
+                    </TD>
+                    <TD className="font-mono tabular">
+                      {p.probability === null ? "—" : p.probability.toFixed(3)}
+                    </TD>
+                    <TD>
+                      <Badge tone="neutral">{p.modelVersion ? `v${p.modelVersion}` : "—"}</Badge>
+                    </TD>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center justify-between border-t border-outline-variant px-4 py-2 text-[11px] text-on-surface-variant">
-            <span>
-              Showing <span className="font-semibold text-on-surface">{filtered.length}</span> of{" "}
-              <span className="font-semibold text-on-surface">{ROSTER.length}</span> patients
-            </span>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" disabled>
-                Previous
-              </Button>
-              <Button variant="secondary" size="sm">
-                Next
-              </Button>
-            </div>
+              </TBody>
+            </Table>
+            <p className="mt-3 text-xs text-on-surface-variant">
+              Showing {filtered.length} of {ROSTER.length} sample records.
+            </p>
           </div>
         </Card>
       </div>

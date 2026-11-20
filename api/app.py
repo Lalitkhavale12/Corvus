@@ -592,7 +592,7 @@ def model_info_v2():
 # ---------------------------------------------------------------------------
 
 @app.get("/api/v1/models", response_model=List[dict])
-def list_all_models(current_user: User = Depends(get_current_user)):
+def list_all_models(current_user: User = Depends(require_user)):
     """List all registered model versions in MLflow registry."""
     try:
         models = model_loader.list_all_model_versions()
@@ -603,10 +603,10 @@ def list_all_models(current_user: User = Depends(get_current_user)):
 
 
 @app.get("/api/v1/models/{version}/details", response_model=dict)
-def get_model_details(version: str, current_user: User = Depends(get_current_user)):
+def get_model_details(version: str, current_user: User = Depends(require_user)):
     """Get detailed information about a specific model version."""
     try:
-        details = model_loader.get_model_version_details(model_version=version)
+        details = model_loader.get_model_version_details(version=version)
         if not details:
             raise HTTPException(status_code=404, detail=f"Model version {version} not found")
         return details
@@ -619,11 +619,15 @@ def get_model_details(version: str, current_user: User = Depends(get_current_use
 
 @app.get("/api/v1/models/compare", response_model=dict)
 def compare_models(
-    current_user: User = Depends(get_current_user),
-    champion_version: str = "9",
-    challenger_version: str = "11",
+    current_user: User = Depends(require_user),
+    champion_version: str | None = None,
+    challenger_version: str | None = None,
 ):
-    """Compare two model versions side by side."""
+    """Compare two model versions side by side (defaults: serving legacy vs v2 pin)."""
+    champion_version = champion_version or app.state.model_version
+    challenger_version = challenger_version or app.state.v2_model_version
+    if not challenger_version:
+        raise HTTPException(status_code=503, detail="No v2 model is pinned")
     try:
         comparison = model_loader.compare_model_versions(
             champion_version=champion_version,
@@ -638,7 +642,7 @@ def compare_models(
 @app.post("/api/v1/models/promote", response_model=dict)
 def promote_challenger_model(
     challenger_version: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_user),
 ):
     """Promote a challenger model to production."""
     try:
@@ -649,8 +653,7 @@ def promote_challenger_model(
         )
         if result.get("promoted"):
             # Update the pinned version in app state
-            app.state.v2_model_version = challenger_version
-            app.state.v2_model_version = challenger_version
+            app.state.v2_model_version = str(challenger_version)
         return result
     except Exception as e:
         log.warning(f"Failed to promote challenger: {e}")
@@ -728,7 +731,7 @@ def read_users_me(current_user: User = Depends(get_current_user)):
 @app.post("/auth/profile", response_model=ProfileOut, status_code=201)
 def create_profile(
     profile_in: PatientProfileCreate | DoctorProfileCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
     """Create the current user's profile (branches on role)."""
@@ -774,7 +777,7 @@ def create_profile(
 
 
 @app.get("/auth/profile", response_model=ProfileOut)
-def read_profile(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def read_profile(current_user: User = Depends(require_user), db: Session = Depends(get_db)):
     """Return the current user's role-appropriate profile."""
     if current_user.role == "patient":
         profile = db.query(PatientProfile).filter(PatientProfile.user_id == current_user.id).first()

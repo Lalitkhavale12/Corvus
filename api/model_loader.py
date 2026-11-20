@@ -223,9 +223,37 @@ def load_v2_threshold(version: str) -> float:
 # Model Management (Phase 4 - Enhanced API)
 # ---------------------------------------------------------------------------
 
+def _registry_client() -> MlflowClient:
+    """Client bound to the configured tracking URI.
+
+    ``MlflowClient()`` alone reads MLFLOW_TRACKING_URI, which the container sets
+    but a host run may not; resolving it here keeps both paths identical. An
+    explicit MLFLOW_TRACKING_URI (containers, tests) still wins.
+    """
+    if not os.environ.get("MLFLOW_TRACKING_URI"):
+        mlflow.set_tracking_uri(resolve_tracking_uri(load_config()))
+    return MlflowClient()
+
+
+def _run_metrics(client: MlflowClient, run_id: str | None) -> dict:
+    """Metrics live on the RUN, not on the model-version object.
+
+    MLflow 3.x ``ModelVersion`` has no ``metadata`` attribute, so the previous
+    ``mv.metadata.metrics`` access raised on every version and the registry
+    endpoints returned empty/error payloads.
+    """
+    if not run_id:
+        return {}
+    try:
+        return dict(client.get_run(run_id).data.metrics)
+    except Exception as e:
+        log.warning(f"Failed to read metrics for run {run_id}: {e}")
+        return {}
+
+
 def list_all_model_versions() -> list[dict]:
     """List all registered model versions in MLflow registry."""
-    client = MlflowClient()
+    client = _registry_client()
     try:
         versions = client.search_model_versions(f"name='{REGISTERED_MODEL_NAME}'")
     except Exception as e:
@@ -234,51 +262,48 @@ def list_all_model_versions() -> list[dict]:
 
     results = []
     for mv in versions:
-        try:
-            details = client.get_model_version(REGISTERED_MODEL_NAME, mv.version)
-            results.append({
-                "name": mv.name,
-                "version": mv.version,
-                "stage": mv.current_stage,
-                "run_id": mv.run_id,
-                "creation_timestamp": mv.creation_timestamp,
-                "last_updated_timestamp": mv.last_updated_timestamp,
-                "metrics": dict(mv.metadata.metrics) if mv.metadata and mv.metadata.metrics else {},
-                "tags": dict(mv.tags) if mv.tags else {},
-            })
-        except Exception:
-            continue
-    return results
+        results.append({
+            "name": mv.name,
+            # File store returns int versions, HTTP store returns str; keep str.
+            "version": str(mv.version),
+            "stage": mv.current_stage,
+            "run_id": mv.run_id,
+            "creation_timestamp": mv.creation_timestamp,
+            "last_updated_timestamp": mv.last_updated_timestamp,
+            "status": mv.status,
+            "metrics": _run_metrics(client, mv.run_id),
+            "tags": dict(mv.tags) if mv.tags else {},
+        })
+    return sorted(results, key=lambda m: int(m["version"]), reverse=True)
 
 
 def get_model_version_details(version: str) -> dict | None:
-    """Get detailed information about a specific model version."""
-    client = MlflowClient()
+    """Get detailed information about a specific model version (None if absent)."""
+    client = _registry_client()
     try:
-        details = client.get_model_version(REGISTERED_MODEL_NAME, version)
-        return {
-            "name": details.name,
-            "version": details.version,
-            "stage": details.current_stage,
-            "run_id": details.run_id,
-            "creation_timestamp": details.creation_timestamp,
-            "last_updated_timestamp": details.last_updated_timestamp,
-            "status": details.status,
-            "status_message": details.status_message,
-            "metrics": dict(details.metadata.metrics) if details.metadata and details.metadata.metrics else {},
-            "tags": dict(details.tags) if details.tags else {},
-            "source": details.source,
-            "run_link": f"{client.tracking_uri}/#/experiments/{details.run_id}/runs/{details.run_id}",
-        }
+        details = client.get_model_version(REGISTERED_MODEL_NAME, str(version))
     except Exception as e:
-        log.warning(f"Failed to get model version details for {version}: {e}")
+        log.warning(f"Model version {version} not found: {e}")
         return None
+    tracking_uri = client.tracking_uri or resolve_tracking_uri()
+    return {
+        "name": details.name,
+        "version": str(details.version),
+        "stage": details.current_stage,
+        "run_id": details.run_id,
+        "creation_timestamp": details.creation_timestamp,
+        "last_updated_timestamp": details.last_updated_timestamp,
+        "status": details.status,
+        "status_message": details.status_message,
+        "metrics": _run_metrics(client, details.run_id),
+        "tags": dict(details.tags) if details.tags else {},
+        "source": details.source,
+        "run_link": f"{tracking_uri}/#/experiments/{details.run_id}/runs/{details.run_id}",
+    }
 
 
 def compare_model_versions(champion_version: str, challenger_version: str) -> dict:
     """Compare two model versions side by side."""
-    client = MlflowClient()
-
     champion_details = get_model_version_details(champion_version)
     challenger_details = get_model_version_details(challenger_version)
 
@@ -312,8 +337,11 @@ def compare_model_versions(champion_version: str, challenger_version: str) -> di
             try:
                 champ_f = float(champ_val)
                 chall_f = float(chall_val)
+                # champ_f == 0 has no meaningful percentage change (div by zero).
+                improvement_pct = (
+                    ((chall_f - champ_f) / champ_f) * 100 if champ_f > 0 else None
+                )
                 if champ_f > 0:
-                    improvement_pct = ((chall_f - champ_f) / champ_f) * 100
                     if chall_f > champ_f:
                         improvements += 1
                     elif chall_f < champ_f:
@@ -322,7 +350,9 @@ def compare_model_versions(champion_version: str, challenger_version: str) -> di
                     "metric": metric_name,
                     "champion": champ_val,
                     "challenger": chall_val,
-                    "improvement_pct": round(improvement_pct, 2),
+                    "improvement_pct": (
+                        round(improvement_pct, 2) if improvement_pct is not None else None
+                    ),
                     "improved": chall_f > champ_f,
                 })
             except (ValueError, TypeError):
